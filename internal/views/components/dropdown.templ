@@ -1,0 +1,33 @@
+package components
+
+type DropdownProps struct {
+	Label     string
+	Class     string
+	ListClass string
+	Items     []DropdownItem
+}
+
+type DropdownItem struct {
+	Label string
+	Attrs templ.Attributes
+}
+
+templ Dropdown(props DropdownProps) {
+	<details class={ "dropdown", props.Class }>
+		<summary class="btn m-1">{ props.Label }</summary>
+		<ul class={ "menu dropdown-content", props.ListClass }>
+			for _, di := range props.Items {
+				<li><a { di.Attrs... }>{ di.Label }</a></li>
+			}
+			<script>
+                ((ul) => {
+                    ul.querySelectorAll("li a").forEach(el => {
+                        el.addEventListener("click", () => {
+                            ul.parentElement.removeAttribute("open");
+                        })
+                    })
+                })(document.currentScript.parentElement)
+            </script>
+		</ul>
+	</details>
+}

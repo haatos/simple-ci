@@ -1,0 +1,152 @@
+package pages
+
+import "fmt"
+import "time"
+import "github.com/haatos/simple-ci/internal/store"
+import "github.com/haatos/simple-ci/internal/views"
+import "github.com/haatos/simple-ci/internal/views/components"
+
+templ RunsPage(user *store.User, runs []store.Run, pipelineID, page, maxPages int64) {
+	@views.Layout(user, views.LayoutProps{Title: "App"}) {
+		@RunsMain(runs, pipelineID, page, maxPages)
+	}
+}
+
+templ RunsMain(runs []store.Run, pipelineID, page, maxPages int64) {
+	<main class="w-full p-4 border border-base-content/20 rounded-box space-y-4">
+		@RunsPagination(runs, pipelineID, page, maxPages)
+	</main>
+}
+
+templ RunsPagination(runs []store.Run, pipelineID, page, maxPages int64) {
+	@components.Pagination(
+		"run_pagination",
+		components.PaginationProps{
+			URL:      fmt.Sprintf("/app/pipelines/%d/runs-list", pipelineID),
+			Page:     page,
+			Low:      determineRunsPaginationLow(page, maxPages),
+			High:     determineRunsPaginationHigh(page, maxPages),
+			MaxPages: maxPages,
+		},
+	) {
+		@RunsTable(runs)
+	}
+}
+
+templ RunsTable(runs []store.Run) {
+	@components.Table(
+		[]templ.Component{
+			components.PlainText("Pipeline"),
+			components.PlainText("RunID"),
+			components.PlainText("Branch"),
+			components.PlainText("Status"),
+			components.PlainText("Started on"),
+			components.PlainText("Ended on"),
+			components.PlainText(""),
+		},
+		runsTableRows(runs),
+		nil,
+	)
+}
+
+func runsTableRows(runs []store.Run) []templ.Component {
+	components := make([]templ.Component, 0)
+	for _, r := range runs {
+		components = append(components, runsTableRow(r))
+	}
+	return components
+}
+
+templ runsTableRow(r store.Run) {
+	<tr>
+		<td>{ r.PipelineName }</td>
+		<td>{ fmt.Sprintf("%d", r.RunID) }</td>
+		<td>{ r.Branch }</td>
+		<td
+			class={
+				"font-bold",
+				templ.KV("text-success", r.Status == store.StatusPassed),
+				templ.KV("text-error", r.Status == store.StatusFailed),
+				templ.KV("text-neutral", r.Status == store.StatusCancelled),
+			}
+		>{ r.Status }</td>
+		<td>{ formatRunRowTime(r.StartedOn) }</td>
+		<td>{ formatRunRowTime(r.EndedOn) }</td>
+		<td class="flex justify-end items-center">
+			@components.Tooltip(components.TooltipProps{Tip: "Cancel run"}) {
+				@components.Modal(
+					components.ModalProps{
+						ID: fmt.Sprintf("cancel_run_%d_modal", r.RunID),
+						Label: cancelPipelineRunModalButton(
+							r.EndedOn != nil && !r.EndedOn.IsZero(),
+							templ.Attributes{"onclick": fmt.Sprintf("cancel_run_%d_modal.showModal()", r.RunID)}),
+					}) {
+					<h2 class="card-title">Cancel pipeline run ID { fmt.Sprintf("%d", r.RunID) }</h2>
+					<p>Are you sure you want to cancel the pipeline run?</p>
+					<div class="flex justify-between items-center mt-8">
+						<form method="dialog">
+							<button class="btn">Close</button>
+							<script data-id={ fmt.Sprintf("cancel_run_%d_btn", r.RunID) }>
+                                ((form, btnId) => {
+                                    document.addEventListener("htmx:afterRequest", (evt) => {
+                                        if (evt.detail.elt.id == btnId && evt.detail.successful) {
+                                            form.querySelector("button").click()
+                                        }
+                                    })
+                                })(document.currentScript.parentElement, document.currentScript.getAttribute("data-id"))
+                            </script>
+						</form>
+						<button
+							id={ fmt.Sprintf("cancel_run_%d_btn", r.RunID) }
+							type="submit"
+							class="btn btn-error"
+							hx-post={ fmt.Sprintf("/app/pipelines/%d/runs/%d/cancel", r.RunPipelineID, r.RunID) }
+						>
+							Cancel
+						</button>
+					</div>
+				}
+			}
+			@components.Tooltip(components.TooltipProps{Tip: "Download artifacts"}) {
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("/app/pipelines/%d/runs/%d/artifacts", r.RunPipelineID, r.RunID)) }
+					class="btn btn-xs btn-ghost"
+				>
+					@views.DownloadArtifactsIcon()
+				</a>
+			}
+			@components.Tooltip(components.TooltipProps{Tip: "Run details"}) {
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("/app/pipelines/%d/runs/%d", r.RunPipelineID, r.RunID)) }
+					class="btn btn-xs btn-ghost"
+				>
+					@views.ExternalIcon("h-4 w-4")
+				</a>
+			}
+		</td>
+	</tr>
+}
+
+func formatRunRowTime(t *time.Time) string {
+	if t == nil || t.IsZero() {
+		return ""
+	}
+	return t.Format("2006-01-02 15:04")
+}
+
+func determineRunsPaginationLow(page, maxPages int64) int64 {
+	var low int64 = 1
+	if page > 5 {
+		low = page - 5
+	}
+	return low
+}
+
+func determineRunsPaginationHigh(page, maxPages int64) int64 {
+	var high int64 = min(page+4, maxPages)
+	if maxPages <= 9 {
+
+		high = maxPages
+	}
+	return high
+}

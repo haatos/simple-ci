@@ -1,0 +1,50 @@
+package pages
+
+import "fmt"
+import "github.com/haatos/simple-ci/internal/views"
+import "github.com/haatos/simple-ci/internal/views/components"
+import "github.com/haatos/simple-ci/internal/store"
+
+templ ProfilePage(user *store.User) {
+	@views.Layout(user, views.LayoutProps{Title: "Profile"}) {
+		@ProfileMain(user)
+	}
+}
+
+templ ProfileMain(u *store.User) {
+	<main class="p-4">
+		<h2 class="text-xl">Update password</h2>
+		<form
+			id="update-profile-form"
+			class="w-full max-w-xs mt-8"
+			hx-patch={ fmt.Sprintf("/app/users/%d/change-password", u.UserID) }
+		>
+			@components.Input(components.InputProps{
+				Name:     "username",
+				Value:    u.Username,
+				ReadOnly: true,
+			})
+			@components.Input(components.InputProps{
+				Label:       "Old password*",
+				Name:        "old_password",
+				Type:        "password",
+				Placeholder: "Enter your old password...",
+			})
+			@components.Input(components.InputProps{
+				Label:       "New password*",
+				Name:        "password",
+				Type:        "password",
+				Placeholder: "Enter a new password...",
+			})
+			@components.Input(components.InputProps{
+				Label:       "Confirm new password*",
+				Name:        "password_confirm",
+				Type:        "password",
+				Placeholder: "Enter new password again...",
+			})
+			<button type="submit" class="btn btn-primary w-full mt-8">
+				Update
+			</button>
+		</form>
+	</main>
+}

@@ -1,0 +1,48 @@
+package views
+
+import "fmt"
+import "github.com/haatos/simple-ci/internal/views/components"
+
+templ FailureToast(message string, timeout int) {
+	@components.Toast(components.ToastProps{Name: "failure-toast", ToastClass: "toast-center toast-top z-[9999]", AlertClass: "alert-error"}) {
+		@exclamationIcon("stroke-error-content")
+		<span>{ message }</span>
+		<script data-timeout={ fmt.Sprintf("%d", timeout) }>
+            ((toast, dataTimeout) => {
+                setTimeout(() => toast.remove(), dataTimeout);
+            })(document.currentScript.closest("div.toast"), Number(document.currentScript.getAttribute("data-timeout")))
+        </script>
+	}
+}
+
+templ SuccessToast(message string, timeout int) {
+	@components.Toast(components.ToastProps{Name: "success-toast", ToastClass: "toast-center toast-top z-[9999]", AlertClass: "alert-success"}) {
+		@successIcon()
+		<span>{ message }</span>
+		<script data-timeout={ fmt.Sprintf("%d", timeout) }>
+            ((toast, dataTimeout) => {
+                setTimeout(() => toast.remove(), dataTimeout);
+            })(document.currentScript.closest("div.toast"), Number(document.currentScript.getAttribute("data-timeout")))
+        </script>
+	}
+}
+
+templ exclamationIcon(class string) {
+	<svg class={ "h-6 w-6", class } viewBox="0 0 36 36" version="1.1" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+		<circle class="clr-i-outline clr-i-outline-path-1" cx="18" cy="26.06" r="1.33"></circle><path class="clr-i-outline clr-i-outline-path-2" d="M18,22.61a1,1,0,0,1-1-1v-12a1,1,0,1,1,2,0v12A1,1,0,0,1,18,22.61Z"></path><path class="clr-i-outline clr-i-outline-path-3" d="M18,34A16,16,0,1,1,34,18,16,16,0,0,1,18,34ZM18,4A14,14,0,1,0,32,18,14,14,0,0,0,18,4Z"></path>
+	</svg>
+}
+
+templ successIcon() {
+	<svg class="h-6 w-6" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+		<defs>
+			<style>.cls-1{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-width:20px;}</style>
+		</defs>
+		<g data-name="Layer 2" id="Layer_2">
+			<g data-name="E408, Success, Media, media player, multimedia" id="E408_Success_Media_media_player_multimedia">
+				<circle class="cls-1 stroke-success-content" cx="256" cy="256" r="246"></circle>
+				<polyline class="cls-1 stroke-success-content" points="115.54 268.77 200.67 353.9 396.46 158.1"></polyline>
+			</g>
+		</g>
+	</svg>
+}

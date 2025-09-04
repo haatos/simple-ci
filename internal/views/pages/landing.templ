@@ -1,0 +1,34 @@
+package pages
+
+import "github.com/haatos/simple-ci/internal/views/components"
+import "github.com/haatos/simple-ci/internal/views"
+import "github.com/haatos/simple-ci/internal/store"
+
+templ IndexPage(user *store.User) {
+	@views.LandingLayout(user, views.LayoutProps{Title: "SimpleCI"}) {
+		@IndexMain()
+	}
+}
+
+templ IndexMain() {
+	<main class="flex justify-center items-center mt-48">
+		<form hx-post="/auth/login" class="w-full max-w-xs grid gap-4">
+			@components.Input(components.InputProps{
+				Label:       "Username*",
+				Name:        "username",
+				Placeholder: "Enter your username...",
+				Required:    true,
+			})
+			@components.Input(components.InputProps{
+				Label:       "Password*",
+				Name:        "password",
+				Placeholder: "Enter your password...",
+				Type:        "password",
+				Required:    true,
+			})
+			<button type="submit" class="btn btn-primary">
+				Log in
+			</button>
+		</form>
+	</main>
+}

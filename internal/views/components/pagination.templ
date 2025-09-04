@@ -1,0 +1,127 @@
+package components
+
+import "fmt"
+
+type PaginationProps struct {
+	URL      string
+	Page     int64
+	Low      int64
+	High     int64
+	MaxPages int64
+}
+
+templ Pagination(id string, props PaginationProps) {
+	<div id={ id }>
+		<!-- paginated content goes here -->
+		{ children... }
+		<!-- -->
+		if props.Low < props.High {
+			<div class="flex justify-center mt-2 join">
+				@PaginationButton(id, props.URL, 1, props.Page == 1) {
+					@AnglesLeft()
+				}
+				@PaginationButton(id, props.URL, props.Page-1, props.Page == 1) {
+					@ChevronLeft()
+				}
+				for i := props.Low; i <= max(props.Low, props.High); i++ {
+					@PaginationButton(id, props.URL, i, props.Page == i) {
+						{ fmt.Sprintf("%d", i) }
+					}
+				}
+				@PaginationButton(id, props.URL, props.Page+1, props.Page >= props.MaxPages) {
+					@ChevronRight()
+				}
+				@PaginationButton(id, props.URL, props.MaxPages, props.Page >= props.MaxPages) {
+					@AnglesRight()
+				}
+			</div>
+		}
+	</div>
+}
+
+templ PaginationButton(id, url string, urlPage int64, disabled bool) {
+	<button
+		if url != "" {
+			hx-get={ fmt.Sprintf("%s?page=%d", url, urlPage) }
+			hx-target={ fmt.Sprintf("#%s", id) }
+			hx-swap="outerHTML"
+		}
+		class={
+			"join-item btn btn-square disabled:opacity-40",
+			templ.KV("btn-disabled", disabled),
+		}
+		if disabled {
+			disabled
+		}
+	>
+		{ children... }
+	</button>
+}
+
+templ AnglesRight() {
+	<svg
+		class="w-4 h-4"
+		viewBox="0 0 24 24"
+		fill="none"
+		xmlns="http://www.w3.org/2000/svg"
+	>
+		<path
+			d="M6 17L11 12L6 7M13 17L18 12L13 7"
+			class="stroke-base-content"
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+		></path>
+	</svg>
+}
+
+templ AnglesLeft() {
+	<svg
+		class="w-4 h-4"
+		viewBox="0 0 24 24"
+		fill="none"
+		xmlns="http://www.w3.org/2000/svg"
+	>
+		<path
+			d="M18 17L13 12L18 7M11 17L6 12L11 7"
+			class="stroke-base-content"
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+		></path>
+	</svg>
+}
+
+templ ChevronRight() {
+	<svg
+		class="w-4 h-4"
+		viewBox="0 0 24 24"
+		fill="none"
+		xmlns="http://www.w3.org/2000/svg"
+	>
+		<path
+			d="M9 6L15 12L9 18"
+			class="stroke-base-content"
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+		></path>
+	</svg>
+}
+
+templ ChevronLeft() {
+	<svg
+		class="w-4 h-4"
+		viewBox="0 0 24 24"
+		fill="none"
+		xmlns="http://www.w3.org/2000/svg"
+	>
+		<path
+			d="M15 6L9 12L15 18"
+			class="stroke-base-content"
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+		></path>
+	</svg>
+}

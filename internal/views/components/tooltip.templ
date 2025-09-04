@@ -1,0 +1,12 @@
+package components
+
+type TooltipProps struct {
+	Tip   string
+	Class string
+}
+
+templ Tooltip(props TooltipProps) {
+	<div class={ "tooltip", props.Class } data-tip={ props.Tip }>
+		{ children... }
+	</div>
+}
