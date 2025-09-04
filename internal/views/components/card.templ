@@ -1,0 +1,36 @@
+package components
+
+type CardProps struct {
+	Title     string
+	TitleIcon templ.Component
+	Content   any // string or templ.Component
+	Source    string
+	Alt       string
+	Class     string
+}
+
+templ Card(props CardProps) {
+	<div class={ "card", props.Class }>
+		if props.Source != "" {
+			<figure>
+				<img src={ props.Source } alt={ props.Alt }/>
+			</figure>
+		}
+		<div class="card-body">
+			<h2 class="card-title">
+				if props.TitleIcon != nil {
+					@props.TitleIcon
+				}
+				{ props.Title }
+			</h2>
+			if v, ok := props.Content.(string); ok {
+				<p class="text-lg">{ v }</p>
+			} else {
+				@props.Content.(templ.Component)
+			}
+			<div class="card-actions justify-end">
+				{ children... }
+			</div>
+		</div>
+	</div>
+}

@@ -1,0 +1,19 @@
+package pages
+
+import "github.com/haatos/simple-ci/internal/views"
+import "github.com/haatos/simple-ci/internal/store"
+
+templ ErrorPage(user *store.User, title, description string) {
+	@views.Layout(user, views.LayoutProps{Title: "SimpleCI"}) {
+		@ErrorMain(title, description)
+	}
+}
+
+templ ErrorMain(title, description string) {
+	<main class="flex justify-center mt-32">
+		<div class="flex flex-col space-y-8">
+			<h2 class="text-4xl font-bold">{ title }</h2>
+			<p>{ description }</p>
+		</div>
+	</main>
+}

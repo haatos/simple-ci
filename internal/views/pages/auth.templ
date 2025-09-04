@@ -1,0 +1,37 @@
+package pages
+
+import "github.com/haatos/simple-ci/internal/views"
+import "github.com/haatos/simple-ci/internal/views/components"
+import "github.com/haatos/simple-ci/internal/store"
+
+templ ChangePasswordPage(user *store.User) {
+	@views.LandingLayout(user, views.LayoutProps{Title: "App"}) {
+		@ChangePasswordMain(user)
+	}
+}
+
+templ ChangePasswordMain(u *store.User) {
+	<main class="w-full flex flex-col justify-center items-center mt-24">
+		<h1 class="text-xl">Please set a new password</h1>
+		<form hx-post="/auth/set-password" class="mt-8 w-full max-w-xs">
+			@components.Input(components.InputProps{
+				Name:     "username",
+				Value:    u.Username,
+				ReadOnly: true,
+			})
+			@components.Input(components.InputProps{
+				Name:  "password",
+				Label: "Password*",
+				Type:  "password",
+			})
+			@components.Input(components.InputProps{
+				Name:  "password_confirm",
+				Label: "Confirm password",
+				Type:  "password",
+			})
+			<button class="btn btn-primary w-full mt-8">
+				Set password
+			</button>
+		</form>
+	</main>
+}

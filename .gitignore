@@ -1,0 +1,8 @@
+bin/
+.env
+.env.prod
+db.sqlite*
+node_modules/
+*_templ.go
+public/static/css/tw.css
+artifacts/

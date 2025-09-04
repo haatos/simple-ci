@@ -1,0 +1,348 @@
+package views
+
+import (
+	"github.com/haatos/simple-ci/internal/store"
+	"github.com/haatos/simple-ci/internal/views/components"
+)
+
+type LayoutProps struct {
+	Title string
+}
+
+templ LandingLayout(user *store.User, props LayoutProps) {
+	<!DOCTYPE html>
+	<html lang="en">
+		@layoutHead(props.Title)
+		<body
+			class="bg-light dark:bg-dark bg-cover bg-center bg-no-repeat"
+		>
+			<nav class="drawer">
+				<input id="drawer-toggle" type="checkbox" class="drawer-toggle"/>
+				<div class="drawer-content flex flex-col">
+					<!-- Navbar -->
+					@navbar(user)
+					<div class="w-full min-h-svh">
+						{ children... }
+					</div>
+				</div>
+				<div class="drawer-side">
+					<label
+						for="drawer-toggle"
+						aria-label="close sidebar"
+						class="drawer-overlay"
+					></label>
+				</div>
+			</nav>
+			@htmxScripts()
+			@htmxSendErrorDialog()
+		</body>
+	</html>
+}
+
+templ Layout(user *store.User, props LayoutProps) {
+	<!DOCTYPE html>
+	<html lang="en">
+		@layoutHead(props.Title)
+		<body
+			class="bg-light dark:bg-dark bg-cover bg-center bg-no-repeat"
+		>
+			<nav class="drawer">
+				<input id="drawer-toggle" type="checkbox" class="drawer-toggle"/>
+				<div class="drawer-content flex flex-col">
+					<!-- Navbar -->
+					@navbar(user)
+					<!-- Page content here -->
+					<div class="flex space-x-4 mx-4">
+						@sideMenu(user)
+						<div class="w-full">
+							{ children... }
+						</div>
+					</div>
+				</div>
+				<div class="drawer-side">
+					<label
+						for="drawer-toggle"
+						aria-label="close sidebar"
+						class="drawer-overlay"
+					></label>
+				</div>
+			</nav>
+			@htmxScripts()
+			@htmxSendErrorDialog()
+		</body>
+	</html>
+}
+
+templ layoutHead(title string) {
+	<head>
+		<meta hx-preserve="true" charset="UTF-8"/>
+		<meta hx-preserve="true" name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<link hx-preserve="true" rel="icon" href="/favicon.svg"/>
+		<link hx-preserve="true" rel="preconnect" href="https://fonts.googleapis.com"/>
+		<link hx-preserve="true" rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+		<link
+			hx-preserve="true"
+			href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@500&display=swap"
+			rel="stylesheet"
+		/>
+		<script hx-preserve="true" src="/static/js/htmx.min.js"></script>
+		<script hx-preserve="true" src="/static/js/htmx-ext-sse.js"></script>
+		<link hx-preserve="true" rel="stylesheet" href="/static/css/tw.css"/>
+		<title>{ title }</title>
+	</head>
+}
+
+func NavigationLinkAttrs(url string) templ.Attributes {
+	return templ.Attributes{
+		"href":        url,
+		"hx-get":      url,
+		"hx-swap":     "outerHTML",
+		"hx-target":   "main",
+		"hx-push-url": "true",
+	}
+}
+
+templ logo() {
+	<svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+		<path class="fill-base-content" fill-rule="evenodd" clip-rule="evenodd" d="M14 2C14 2.74028 13.5978 3.38663 13 3.73244V4H20C21.6569 4 23 5.34315 23 7V19C23 20.6569 21.6569 22 20 22H4C2.34315 22 1 20.6569 1 19V7C1 5.34315 2.34315 4 4 4H11V3.73244C10.4022 3.38663 10 2.74028 10 2C10 0.895431 10.8954 0 12 0C13.1046 0 14 0.895431 14 2ZM4 6H11H13H20C20.5523 6 21 6.44772 21 7V19C21 19.5523 20.5523 20 20 20H4C3.44772 20 3 19.5523 3 19V7C3 6.44772 3.44772 6 4 6ZM15 11.5C15 10.6716 15.6716 10 16.5 10C17.3284 10 18 10.6716 18 11.5C18 12.3284 17.3284 13 16.5 13C15.6716 13 15 12.3284 15 11.5ZM16.5 8C14.567 8 13 9.567 13 11.5C13 13.433 14.567 15 16.5 15C18.433 15 20 13.433 20 11.5C20 9.567 18.433 8 16.5 8ZM7.5 10C6.67157 10 6 10.6716 6 11.5C6 12.3284 6.67157 13 7.5 13C8.32843 13 9 12.3284 9 11.5C9 10.6716 8.32843 10 7.5 10ZM4 11.5C4 9.567 5.567 8 7.5 8C9.433 8 11 9.567 11 11.5C11 13.433 9.433 15 7.5 15C5.567 15 4 13.433 4 11.5ZM10.8944 16.5528C10.6474 16.0588 10.0468 15.8586 9.55279 16.1056C9.05881 16.3526 8.85858 16.9532 9.10557 17.4472C9.68052 18.5971 10.9822 19 12 19C13.0178 19 14.3195 18.5971 14.8944 17.4472C15.1414 16.9532 14.9412 16.3526 14.4472 16.1056C13.9532 15.8586 13.3526 16.0588 13.1056 16.5528C13.0139 16.7362 12.6488 17 12 17C11.3512 17 10.9861 16.7362 10.8944 16.5528Z"></path>
+	</svg>
+}
+
+templ navbar(user *store.User) {
+	<div class="navbar">
+		<div class="navbar-start">
+			<div class="flex-none lg:hidden">
+				<label
+					for="drawer-toggle"
+					aria-label="open sidebar"
+					class="btn btn-square btn-ghost"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						class="inline-block h-6 w-6 stroke-current"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M4 6h16M4 12h16M4 18h16"
+						></path>
+					</svg>
+				</label>
+			</div>
+			<a
+				href="/"
+				hx-get="/"
+				hx-target="main"
+				hx-push-url="true"
+				class="btn btn-ghost text-xl"
+			>
+				@logo()
+				SimpleCI
+			</a>
+		</div>
+		@navBarMenu(user)
+	</div>
+}
+
+templ navBarMenu(user *store.User) {
+	<div class="navbar-end">
+		<ul class="flex space-x-4 items-center pr-4">
+			if user == nil {
+				<li>
+					<a
+						class="btn btn-sm xl:btn-md btn-primary"
+						href="/signup"
+						hx-get="/signup"
+						hx-target="main"
+						hx-swap="outerHTML"
+						hx-push-url="true"
+					>
+						Sign up
+					</a>
+				</li>
+				<li>
+					<a
+						class="btn btn-sm xl:btn-md btn-ghost"
+						href="/login"
+						hx-get="/login"
+						hx-target="main"
+						hx-swap="outerHTML"
+						hx-push-url="true"
+					>
+						Log in
+					</a>
+				</li>
+			} else {
+				@components.Dropdown(components.DropdownProps{
+					Label: user.Username,
+					Items: []components.DropdownItem{
+						{Label: "Profile", Attrs: templ.Attributes{
+							"href":        "/app/user",
+							"hx-get":      "/app/user",
+							"hx-swap":     "outerHTML",
+							"hx-target":   "main",
+							"hx-push-url": "true"},
+						},
+						{Label: "Log out", Attrs: templ.Attributes{"href": "/auth/logout"}},
+					},
+					Class:     "dropdown-end",
+					ListClass: "w-52 rounded-box bg-base-300",
+				})
+			}
+		</ul>
+	</div>
+}
+
+templ sideMenu(user *store.User) {
+	<aside class="border border-base-content/20 rounded-box h-full min-h-64 max-h-72">
+		@components.Menu(components.MenuProps{
+			Class: "menu-lg w-52 h-full",
+		}) {
+			@components.MenuItem(
+				components.MenuItemProps{
+					Label: "Dashboard",
+					Icon:  DashboardIcon(),
+					Attrs: NavigationLinkAttrs("/app"),
+				})
+			@components.MenuItem(
+				components.MenuItemProps{
+					Label: "Credentials",
+					Icon:  CredentialsIcon(),
+					Attrs: NavigationLinkAttrs("/app/credentials"),
+				})
+			@components.MenuItem(
+				components.MenuItemProps{
+					Label: "Agents",
+					Icon:  AgentsIcon(),
+					Attrs: NavigationLinkAttrs("/app/agents"),
+				})
+			@components.MenuItem(
+				components.MenuItemProps{
+					Label: "Pipelines",
+					Icon:  PipelinesIcon(),
+					Attrs: NavigationLinkAttrs("/app/pipelines"),
+				})
+			@components.MenuItem(
+				components.MenuItemProps{
+					Label: "Settings",
+					Icon:  SettingsIcon(),
+					Attrs: NavigationLinkAttrs("/app/settings"),
+				})
+			if user.IsSuperuser() {
+				@components.MenuItem(
+					components.MenuItemProps{
+						Label: "Users",
+						Icon:  UsersIcon(),
+						Attrs: NavigationLinkAttrs("/app/users"),
+					},
+				)
+			}
+		}
+	</aside>
+}
+
+templ DashboardIcon() {
+	<svg class="h-6 w-6 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+		<path class="stroke-base-content" d="M22 12.2039V13.725C22 17.6258 22 19.5763 20.8284 20.7881C19.6569 22 17.7712 22 14 22H10C6.22876 22 4.34315 22 3.17157 20.7881C2 19.5763 2 17.6258 2 13.725V12.2039C2 9.91549 2 8.77128 2.5192 7.82274C3.0384 6.87421 3.98695 6.28551 5.88403 5.10813L7.88403 3.86687C9.88939 2.62229 10.8921 2 12 2C13.1079 2 14.1106 2.62229 16.116 3.86687L18.116 5.10812C20.0131 6.28551 20.9616 6.87421 21.4808 7.82274" stroke-width="1.5" stroke-linecap="round"></path>
+		<path class="stroke-base-content" d="M15 18H9" stroke-width="1.5" stroke-linecap="round"></path>
+	</svg>
+}
+
+templ CredentialsIcon() {
+	<svg class="h-6 w-6 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+		<path class="stroke-base-content" d="M14.2084 13.5521C16.3025 13.5521 18 11.8615 18 9.77606C18 7.6906 16.3025 6 14.2084 6C12.1144 6 10.4169 7.6906 10.4169 9.77606C10.4169 10.742 10.8578 11.4446 10.8578 11.4446L6.27264 16.011C6.0669 16.2159 5.77886 16.7486 6.27264 17.2404L6.8017 17.7673C7.00743 17.9429 7.52471 18.1888 7.94796 17.7673L8.56519 17.1526C9.18242 17.7673 9.88782 17.416 10.1523 17.0647C10.5932 16.45 10.0642 15.8353 10.0642 15.8353L10.2405 15.6597C11.087 16.5027 11.8277 16.011 12.0922 15.6597C12.5331 15.045 12.0922 14.4303 12.0922 14.4303C11.9159 14.079 11.5632 14.079 12.004 13.64L12.5331 13.113C12.9564 13.4643 13.8264 13.5521 14.2084 13.5521Z" stroke-width="1.5" stroke-linejoin="round"></path>
+		<path class="stroke-base-content" d="M22 12C22 16.714 22 19.0711 20.5355 20.5355C19.0711 22 16.714 22 12 22C7.28595 22 4.92893 22 3.46447 20.5355C2 19.0711 2 16.714 2 12C2 7.28595 2 4.92893 3.46447 3.46447C4.92893 2 7.28595 2 12 2C16.714 2 19.0711 2 20.5355 3.46447C21.5093 4.43821 21.8356 5.80655 21.9449 8" stroke-width="1.5" stroke-linecap="round"></path>
+	</svg>
+}
+
+templ AgentsIcon() {
+	<svg class="h-6 w-6 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+		<path class="fill-base-content" fill-rule="evenodd" clip-rule="evenodd" d="M14 2C14 2.74028 13.5978 3.38663 13 3.73244V4H20C21.6569 4 23 5.34315 23 7V19C23 20.6569 21.6569 22 20 22H4C2.34315 22 1 20.6569 1 19V7C1 5.34315 2.34315 4 4 4H11V3.73244C10.4022 3.38663 10 2.74028 10 2C10 0.895431 10.8954 0 12 0C13.1046 0 14 0.895431 14 2ZM4 6H11H13H20C20.5523 6 21 6.44772 21 7V19C21 19.5523 20.5523 20 20 20H4C3.44772 20 3 19.5523 3 19V7C3 6.44772 3.44772 6 4 6ZM15 11.5C15 10.6716 15.6716 10 16.5 10C17.3284 10 18 10.6716 18 11.5C18 12.3284 17.3284 13 16.5 13C15.6716 13 15 12.3284 15 11.5ZM16.5 8C14.567 8 13 9.567 13 11.5C13 13.433 14.567 15 16.5 15C18.433 15 20 13.433 20 11.5C20 9.567 18.433 8 16.5 8ZM7.5 10C6.67157 10 6 10.6716 6 11.5C6 12.3284 6.67157 13 7.5 13C8.32843 13 9 12.3284 9 11.5C9 10.6716 8.32843 10 7.5 10ZM4 11.5C4 9.567 5.567 8 7.5 8C9.433 8 11 9.567 11 11.5C11 13.433 9.433 15 7.5 15C5.567 15 4 13.433 4 11.5ZM10.8944 16.5528C10.6474 16.0588 10.0468 15.8586 9.55279 16.1056C9.05881 16.3526 8.85858 16.9532 9.10557 17.4472C9.68052 18.5971 10.9822 19 12 19C13.0178 19 14.3195 18.5971 14.8944 17.4472C15.1414 16.9532 14.9412 16.3526 14.4472 16.1056C13.9532 15.8586 13.3526 16.0588 13.1056 16.5528C13.0139 16.7362 12.6488 17 12 17C11.3512 17 10.9861 16.7362 10.8944 16.5528Z"></path>
+	</svg>
+}
+
+templ PipelinesIcon() {
+	<svg class="h-6 w-6 mr-2" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg" fill="none">
+		<path class="stroke-base-content" stroke-linecap="round" stroke-linejoin="round" stroke-width="12" d="M96 170c40.869 0 74-33.131 74-74 0-40.87-33.131-74-74-74-40.87 0-74 33.13-74 74 0 40.869 33.13 74 74 74Z"></path>
+		<path class="stroke-base-content" stroke-linecap="round" stroke-linejoin="round" stroke-width="12" d="M74 130V62l60 34-37.941 21.5"></path>
+	</svg>
+}
+
+templ SettingsIcon() {
+	<svg class="h-6 w-6 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+		<circle cx="12" cy="12" r="3" class="stroke-base-content" stroke-width="1.5"></circle>
+		<path d="M3.66122 10.6392C4.13377 10.9361 4.43782 11.4419 4.43782 11.9999C4.43781 12.558 4.13376 13.0638 3.66122 13.3607C3.33966 13.5627 3.13248 13.7242 2.98508 13.9163C2.66217 14.3372 2.51966 14.869 2.5889 15.3949C2.64082 15.7893 2.87379 16.1928 3.33973 16.9999C3.80568 17.8069 4.03865 18.2104 4.35426 18.4526C4.77508 18.7755 5.30694 18.918 5.83284 18.8488C6.07287 18.8172 6.31628 18.7185 6.65196 18.5411C7.14544 18.2803 7.73558 18.2699 8.21895 18.549C8.70227 18.8281 8.98827 19.3443 9.00912 19.902C9.02332 20.2815 9.05958 20.5417 9.15224 20.7654C9.35523 21.2554 9.74458 21.6448 10.2346 21.8478C10.6022 22 11.0681 22 12 22C12.9319 22 13.3978 22 13.7654 21.8478C14.2554 21.6448 14.6448 21.2554 14.8478 20.7654C14.9404 20.5417 14.9767 20.2815 14.9909 19.9021C15.0117 19.3443 15.2977 18.8281 15.7811 18.549C16.2644 18.27 16.8545 18.2804 17.3479 18.5412C17.6837 18.7186 17.9271 18.8173 18.1671 18.8489C18.693 18.9182 19.2249 18.7756 19.6457 18.4527C19.9613 18.2106 20.1943 17.807 20.6603 17C20.8677 16.6407 21.029 16.3614 21.1486 16.1272M20.3387 13.3608C19.8662 13.0639 19.5622 12.5581 19.5621 12.0001C19.5621 11.442 19.8662 10.9361 20.3387 10.6392C20.6603 10.4372 20.8674 10.2757 21.0148 10.0836C21.3377 9.66278 21.4802 9.13092 21.411 8.60502C21.3591 8.2106 21.1261 7.80708 20.6601 7.00005C20.1942 6.19301 19.9612 5.7895 19.6456 5.54732C19.2248 5.22441 18.6929 5.0819 18.167 5.15113C17.927 5.18274 17.6836 5.2814 17.3479 5.45883C16.8544 5.71964 16.2643 5.73004 15.781 5.45096C15.2977 5.1719 15.0117 4.6557 14.9909 4.09803C14.9767 3.71852 14.9404 3.45835 14.8478 3.23463C14.6448 2.74458 14.2554 2.35523 13.7654 2.15224C13.3978 2 12.9319 2 12 2C11.0681 2 10.6022 2 10.2346 2.15224C9.74458 2.35523 9.35523 2.74458 9.15224 3.23463C9.05958 3.45833 9.02332 3.71848 9.00912 4.09794C8.98826 4.65566 8.70225 5.17191 8.21891 5.45096C7.73557 5.73002 7.14548 5.71959 6.65205 5.4588C6.31633 5.28136 6.0729 5.18269 5.83285 5.15108C5.30695 5.08185 4.77509 5.22436 4.35427 5.54727C4.03866 5.78945 3.80569 6.19297 3.33974 7C3.13231 7.35929 2.97105 7.63859 2.85138 7.87273" class="stroke-base-content" stroke-width="1.5" stroke-linecap="round"></path>
+	</svg>
+}
+
+templ UsersIcon() {
+	<svg class="h-6 w-6 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+		<circle cx="12" cy="6" r="4" class="stroke-base-content" stroke-width="1.5"></circle>
+		<path d="M15 20.6151C14.0907 20.8619 13.0736 21 12 21C8.13401 21 5 19.2091 5 17C5 14.7909 8.13401 13 12 13C15.866 13 19 14.7909 19 17C19 17.3453 18.9234 17.6804 18.7795 18" class="stroke-base-content" stroke-width="1.5" stroke-linecap="round"></path>
+	</svg>
+}
+
+templ htmxScripts() {
+	<script>
+        document.addEventListener("DOMContentLoaded", function() {
+            document.addEventListener("htmx:afterRequest", function(evt) {
+                if (evt.detail.successful && evt.detail.elt.getAttribute("name") === "hx-anchor") {
+                    document.getElementById("drawer-toggle").checked = false
+                }
+            })
+            document.addEventListener("htmx:sendError", (evt) => {
+                document.getElementById("htmx_send_error").showModal()
+            })
+            document.addEventListener("htmx:afterSwap", (evt) => {
+                if (evt.target.nodeName === "MAIN") {
+                    document.querySelector("body").scrollIntoView()
+                }
+            })
+            document.addEventListener("htmx:beforeSwap", (evt) => {
+                if (evt.detail.xhr.status === 400) {
+                    evt.detail.shouldSwap = true;
+                    evt.detail.isError = false;
+                }
+            })
+        })
+    </script>
+}
+
+templ htmxSendErrorDialog() {
+	<dialog id="htmx_send_error" class="modal modal-bottom sm:modal-middle">
+		<div class="modal-box">
+			<div class="flex space-x-4">
+				<div class="flex justify-center items-center">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-error"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+						></path>
+					</svg>
+				</div>
+				<div class="flex flex-col space-y-2">
+					<h3 class="text-lg font-bold">Connection lost.</h3>
+					<p>
+						Unable to connect to the server at this moment. Please try again
+						later.
+					</p>
+				</div>
+			</div>
+			<div class="modal-action">
+				<form method="dialog">
+					<button class="btn btn-sm">OK</button>
+				</form>
+			</div>
+		</div>
+	</dialog>
+}

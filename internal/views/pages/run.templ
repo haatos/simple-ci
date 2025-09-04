@@ -1,0 +1,105 @@
+package pages
+
+import "fmt"
+import "github.com/haatos/simple-ci/internal/views"
+import "github.com/haatos/simple-ci/internal/store"
+import "github.com/haatos/simple-ci/internal/views/components"
+
+templ PipelineRunPage(user *store.User, r *store.Run) {
+	@views.Layout(user, views.LayoutProps{Title: "App"}) {
+		@PipelineRunPageMain(r)
+	}
+}
+
+templ PipelineRunPageMain(r *store.Run) {
+	<main class="w-full p-4 border border-base-content/20 rounded-box space-y-4">
+		<div class="grid grid-cols-8 gap-4">
+			@PipelineRunPageStatusDiv(r)
+			<div class="col-span-6 border border-base-content/20 rounded-box p-4">
+				@components.Textarea(
+					components.TextareaProps{
+						ID:       "output-textbox",
+						Label:    "Output",
+						Class:    "w-full resize-none bg-base-300 focus:outline-none focus:appearance-none border-none",
+						Rows:     40,
+						Value:    getOutput(r.Output),
+						ReadOnly: true,
+						Attrs: templ.Attributes{
+							"hx-ext":      "sse",
+							"sse-connect": fmt.Sprintf("/app/pipelines/%d/runs/%d/output", r.RunPipelineID, r.RunID),
+							"sse-swap":    "message",
+							"sse-close":   "close",
+							"hx-swap":     "beforeend",
+						},
+					})
+			</div>
+		</div>
+	</main>
+}
+
+templ PipelineRunPageStatusDiv(r *store.Run) {
+	<div
+		hx-ext="sse"
+		sse-connect={ fmt.Sprintf("/app/pipelines/%d/runs/%d/status", r.RunPipelineID, r.RunID) }
+		sse-swap="message"
+		sse-close="close"
+		hx-swap="outerHTML"
+		class="flex flex-col justify-between col-span-2 border border-base-content/20 rounded-box p-4"
+	>
+		<div>
+			<h2><b>Pipeline run</b>:<br/>{ r.RunID }</h2>
+			<p><b>Created on</b>:<br/>{ r.CreatedOn.Format("02.01.2006 15:04:05") }</p>
+			<p>
+				<b>Started on</b>:
+				<br/>
+				<span>
+					if r.StartedOn != nil {
+						{ r.StartedOn.Format("02.01.2006 15:04:05") }
+					}
+				</span>
+			</p>
+			<p>
+				<b>Ended on</b>:
+				<br/>
+				<span>
+					if r.EndedOn != nil {
+						{ r.EndedOn.Format("02.01.2006 15:04:05") }
+					}
+				</span>
+			</p>
+			<p>
+				<b>Status</b>:
+				<br/>
+				<span
+					class={
+						"font-bold",
+						templ.KV("text-success", r.Status == store.StatusPassed),
+						templ.KV("text-error", r.Status == store.StatusFailed),
+						templ.KV("text-info animate-pulse", r.Status == store.StatusRunning),
+					}
+				>
+					{ r.Status }
+				</span>
+			</p>
+		</div>
+		<div>
+			<button
+				class="btn btn-neutral"
+				if r.Status != store.StatusQueued && r.Status != store.StatusRunning {
+					disabled
+				} else {
+					hx-post={ fmt.Sprintf("/app/pipelines/%d/runs/%d/cancel", r.RunPipelineID, r.RunID) }
+				}
+			>
+				Cancel
+			</button>
+		</div>
+	</div>
+}
+
+func getOutput(output *string) string {
+	if output == nil {
+		return ""
+	}
+	return *output
+}

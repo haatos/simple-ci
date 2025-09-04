@@ -1,0 +1,10 @@
+stages:
+  - stage: Test
+    steps:
+      - step: Run tests
+        script: go test ./...
+  - stage: Build
+    steps:
+      - step: Run build
+        script: go build -o bin/simpleci cmd/server/main.go
+    artifacts: bin

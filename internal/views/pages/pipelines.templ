@@ -1,0 +1,520 @@
+package pages
+
+import "fmt"
+import "github.com/haatos/simple-ci/internal/views"
+import "github.com/haatos/simple-ci/internal/store"
+import "github.com/haatos/simple-ci/internal/views/components"
+
+templ PipelinesPage(user *store.User, pipelines []*store.Pipeline, agents []*store.Agent) {
+	@views.Layout(user, views.LayoutProps{Title: "App"}) {
+		@PipelinesMain(pipelines, agents)
+	}
+}
+
+func pipelineAgentIDSelectOptions(agents []*store.Agent, agentID int64) []components.SelectOption {
+	options := make([]components.SelectOption, 0, len(agents)+1)
+	options = append(
+		options,
+		components.SelectOption{Label: "Select agent...", Selected: true, Disabled: true},
+	)
+	for _, c := range agents {
+		options = append(
+			options,
+			components.SelectOption{
+				Label:    fmt.Sprintf("%s", c.Name),
+				Value:    fmt.Sprintf("%d", c.AgentID),
+				Selected: c.AgentID == agentID,
+			})
+	}
+	return options
+}
+
+templ PipelinesMain(pipelines []*store.Pipeline, agents []*store.Agent) {
+	<main class="w-full p-4 border border-base-content/20 rounded-box space-y-4">
+		@components.Modal(
+			components.ModalProps{
+				ID:    "add_pipeline_modal",
+				Label: addPipelineModalButton(templ.Attributes{"onclick": "add_pipeline_modal.showModal()"}, len(agents)),
+			}) {
+			<h2 class="card-title">Add new pipeline</h2>
+			@addNewPipelineForm(agents)
+		}
+		<div id="pipelines-grid" class="grid grid-cols-2 gap-4">
+			for _, p := range pipelines {
+				@PipelineCard(p)
+			}
+		</div>
+	</main>
+}
+
+templ addNewPipelineForm(agents []*store.Agent) {
+	<form
+		id="add-new-pipeline-form"
+		hx-post="/app/pipelines"
+		hx-target="#pipelines-grid"
+		hx-swap="beforeend"
+	>
+		@components.Select(components.SelectProps{
+			Label:    "Agent*",
+			Name:     "pipeline_agent_id",
+			Required: true,
+			Options:  pipelineAgentIDSelectOptions(agents, 0),
+		})
+		@components.Input(components.InputProps{
+			Label:       "Name*",
+			Name:        "name",
+			Placeholder: "Enter a name...",
+			Required:    true,
+		})
+		@components.Textarea(components.TextareaProps{
+			Label:       "Description",
+			Name:        "description",
+			Placeholder: "Enter a description...",
+			Rows:        3,
+			Class:       "resize-none"})
+		@components.Input(components.InputProps{
+			Label:       "Repository*",
+			Name:        "repository",
+			Placeholder: "git@github.com:haatos/simple-ci.git",
+			Required:    true,
+		})
+		@components.Input(components.InputProps{
+			Label:       "Script path*",
+			Name:        "script_path",
+			Placeholder: "pipelines/my-pipeline.yaml",
+			Description: "Relative path of the pipeline script within the repository.",
+			Required:    true,
+		})
+		<script>
+            document.addEventListener("htmx:afterRequest", function(evt) {
+                if (evt.detail.elt.id === "add-new-pipeline-form" && evt.detail.successful) {
+                    add_pipeline_modal.close()
+                }
+            })
+        </script>
+	</form>
+	<div class="flex justify-between items-center mt-8">
+		<form method="dialog">
+			<button class="btn">Close</button>
+		</form>
+		<button
+			form="add-new-pipeline-form"
+			type="submit"
+			class="btn btn-primary"
+		>
+			Add
+		</button>
+	</div>
+}
+
+templ addPipelineModalButton(attrs templ.Attributes, agentCount int) {
+	if agentCount == 0 {
+		@components.Tooltip(components.TooltipProps{Tip: "Add agents first"}) {
+			<div { attrs... } class="btn btn-outline">
+				Add pipeline 
+			</div>
+		}
+	} else {
+		<div { attrs... } class="btn btn-outline">
+			Add pipeline 
+		</div>
+	}
+}
+
+templ PipelineCard(p *store.Pipeline) {
+	@components.Card(
+		components.CardProps{
+			Title:     p.Name,
+			TitleIcon: views.PipelinesIcon(),
+			Content:   PipelineCardContent(p),
+			Class:     "border border-base-content/20 rounded-box",
+		}) {
+		<div class="w-full space-y-4">
+			<div
+				class="flex flex-col space-y-1"
+				hx-get={ fmt.Sprintf("/app/pipelines/%d/latest-runs", p.PipelineID) }
+				hx-swap="innerHTML"
+				hx-trigger="intersect once"
+			></div>
+			<div class="flex justify-end">
+				<div class="grid grid-cols-3 gap-2">
+					@components.Tooltip(components.TooltipProps{Tip: "Edit pipeline"}) {
+						<a
+							{ views.NavigationLinkAttrs(fmt.Sprintf("/app/pipelines/%d", p.PipelineID))... }
+							class="btn btn-ghost"
+						>
+							@views.EditIcon()
+						</a>
+					}
+					@schedulePipelineModal(p)
+					@runPipelineModal(p)
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ schedulePipelineModal(p *store.Pipeline) {
+	@components.Modal(
+		components.ModalProps{
+			ID: fmt.Sprintf("schedule_pipeline_%d_modal", p.PipelineID),
+			Label: schedulePipelineModalButton(
+				templ.Attributes{
+					"onclick": fmt.Sprintf("schedule_pipeline_%d_modal.showModal()", p.PipelineID),
+				}),
+		},
+	) {
+		<h2 class="card-title">Schedule pipeline { p.Name }</h2>
+		<form
+			id={ fmt.Sprintf("schedule_pipeline_%d_form", p.PipelineID) }
+			hx-patch={ fmt.Sprintf("/app/pipelines/%d/schedule", p.PipelineID) }
+		>
+			@components.Input(
+				components.InputProps{
+					Label:       "Schedule",
+					Name:        "schedule",
+					Placeholder: "E.g. 0 2 * * *",
+					ValuePtr:    p.Schedule,
+					Description: "Empty schedule means no schedule.",
+					Attrs:       templ.Attributes{"onfocus": "this.select()"},
+				})
+			@components.Input(
+				components.InputProps{
+					Label:       "Branch",
+					Name:        "schedule_branch",
+					Placeholder: "E.g. main",
+					ValuePtr:    p.ScheduleBranch,
+					Attrs:       templ.Attributes{"onfocus": "this.select()"},
+				},
+			)
+			<script>
+                ((form) => {
+                    document.addEventListener("htmx:afterRequest", (evt) => {
+                        if (evt.detail.elt === form && evt.detail.successful) {
+                            let e = new Event("pipeline-updated");
+                            form.dispatchEvent(e);
+                        }
+                    })
+                    document.addEventListener("htmx:configRequest", (evt) => {
+                        if (evt.detail.parameters["schedule"] === "") {
+                            delete evt.detail.parameters["schedule"];
+                        }
+                        if (evt.detail.parameters["branch"] === "") {
+                            delete evt.detail.parameters["branch"];
+                        }
+                    })
+                })(document.currentScript.parentElement)
+            </script>
+			<script data-btn-id={ fmt.Sprintf("schedule_pipeline_%d_close_btn", p.PipelineID) }>
+                ((form, buttonId) => {
+                    document.addEventListener("htmx:afterRequest", (evt) => {
+                        if (evt.detail.elt === form && evt.detail.successful) {
+                            document.getElementById(buttonId).click();
+                        }
+                    })
+                })(document.currentScript.parentElement, document.currentScript.getAttribute("data-btn-id"))
+            </script>
+		</form>
+		<div class="flex justify-between items-center mt-8">
+			<form method="dialog">
+				<button
+					class="btn"
+					id={ fmt.Sprintf("schedule_pipeline_%d_close_btn", p.PipelineID) }
+				>
+					Close
+				</button>
+			</form>
+			<button
+				form={ fmt.Sprintf("schedule_pipeline_%d_form", p.PipelineID) }
+				class="btn btn-primary"
+			>
+				Schedule
+			</button>
+		</div>
+	}
+}
+
+templ runPipelineModal(p *store.Pipeline) {
+	@components.Modal(
+		components.ModalProps{
+			ID: fmt.Sprintf("run_pipeline_%d_modal", p.PipelineID),
+			Label: runPipelineModalButton(
+				templ.Attributes{
+					"onclick": fmt.Sprintf("run_pipeline_%d_modal.showModal()", p.PipelineID),
+				}),
+		}) {
+		<h2 class="card-title">Start a pipeline run for { p.Name }</h2>
+		<form
+			id={ fmt.Sprintf("run_pipeline_%d_form", p.PipelineID) }
+			hx-post={ fmt.Sprintf("/app/pipelines/%d/runs", p.PipelineID) }
+			hx-swap="none"
+		>
+			@components.Input(components.InputProps{
+				Label:       "Branch",
+				Name:        "branch",
+				Placeholder: "Enter a branch name...",
+				Value:       "main",
+				Attrs: templ.Attributes{
+					"onfocus": "this.select()",
+				},
+			})
+		</form>
+		<div class="flex justify-between items-center mt-8">
+			<form method="dialog">
+				<button class="btn">Close</button>
+			</form>
+			<button
+				form={ fmt.Sprintf("run_pipeline_%d_form", p.PipelineID) }
+				type="submit"
+				class="btn btn-primary"
+			>
+				Run
+			</button>
+		</div>
+	}
+}
+
+templ PipelineRuns(runs []store.Run) {
+	if len(runs) > 0 {
+		<div class="space-y-2">
+			<div class="grid grid-cols-4 px-2">
+				<span>ID</span>
+				<span>Branch</span>
+				<span>Status</span>
+				<span></span>
+			</div>
+			for _, r := range runs {
+				@PipelineRunRow(r)
+			}
+			<a
+				{ views.NavigationLinkAttrs(fmt.Sprintf("/app/pipelines/%d/runs", runs[0].RunPipelineID))... }
+				class="flex justify-center items-center btn btn-xs btn-ghost w-full font-bold"
+			>
+				View all runs 
+				<span class="ml-2">
+					@views.ExternalIcon("h-3 w-3")
+				</span>
+			</a>
+		</div>
+	} else {
+		<div></div>
+	}
+}
+
+templ PipelineRunFullRow(r store.Run) {
+	<div
+		if r.Status == store.StatusRunning || r.Status == store.StatusQueued {
+			hx-ext="sse"
+			sse-connect={ fmt.Sprintf("/app/pipelines/%d/runs/%d/sse", r.RunPipelineID, r.RunID) }
+			sse-swap="message"
+			sse-close="close"
+			hx-swap="outerHTML"
+		}
+		class="w-full grid grid-cols-7 border border-base-content/20 rounded-md py-1 px-2"
+	>
+		<div class="flex items-center justify-center">{ r.PipelineName }</div>
+		<div class="flex items-center justify-center">{ r.RunID } </div>
+		<div class="flex items-center justify-center">{ r.Branch }</div>
+		<div
+			class={
+				"font-bold flex items-center justify-center",
+				templ.KV("text-success", r.Status == store.StatusPassed),
+				templ.KV("text-error", r.Status == store.StatusFailed),
+				templ.KV("text-info", r.Status == store.StatusRunning),
+			}
+		>
+			{ r.Status }
+		</div>
+		<div class="text-sm flex items-center justify-center">
+			if r.StartedOn != nil && !r.StartedOn.IsZero() {
+				{ r.StartedOn.Format("2006-01-02 15:04") }
+			}
+		</div>
+		<div class="text-sm flex items-center justify-center">
+			if r.EndedOn != nil && !r.EndedOn.IsZero() {
+				{ r.EndedOn.Format("2006-01-02 15:04") }
+			}
+		</div>
+		<div class="flex justify-end items-center">
+			@components.Tooltip(components.TooltipProps{Tip: "Cancel run"}) {
+				@components.Modal(
+					components.ModalProps{
+						ID:    fmt.Sprintf("cancel_run_%d_modal", r.RunID),
+						Label: cancelPipelineRunModalButton(r.EndedOn != nil && !r.EndedOn.IsZero(), templ.Attributes{"onclick": fmt.Sprintf("cancel_run_%d_modal.showModal()", r.RunID)}),
+					}) {
+					<h2 class="card-title">Cancel pipeline run ID { fmt.Sprintf("%d", r.RunID) }</h2>
+					<p>Are you sure you want to cancel the pipeline run?</p>
+					<div class="flex justify-between items-center mt-8">
+						<form method="dialog">
+							<button class="btn">Close</button>
+							<script data-id={ fmt.Sprintf("cancel_run_%d_btn", r.RunID) }>
+                                ((form, btnId) => {
+                                    document.addEventListener("htmx:afterRequest", (evt) => {
+                                        if (evt.detail.elt.id == btnId && evt.detail.successful) {
+                                            form.querySelector("button").click()
+                                        }
+                                    })
+                                })(document.currentScript.parentElement, document.currentScript.getAttribute("data-id"))
+                            </script>
+						</form>
+						<button
+							id={ fmt.Sprintf("cancel_run_%d_btn", r.RunID) }
+							type="submit"
+							class="btn btn-error"
+							hx-post={ fmt.Sprintf("/app/pipelines/%d/runs/%d/cancel", r.RunPipelineID, r.RunID) }
+						>
+							Cancel
+						</button>
+					</div>
+				}
+			}
+			@components.Tooltip(components.TooltipProps{Tip: "Download artifacts"}) {
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("/app/pipelines/%d/runs/%d/artifacts", r.RunPipelineID, r.RunID)) }
+					class="btn btn-xs btn-ghost"
+				>
+					@views.DownloadArtifactsIcon()
+				</a>
+			}
+			@components.Tooltip(components.TooltipProps{Tip: "Run details"}) {
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("/app/pipelines/%d/runs/%d", r.RunPipelineID, r.RunID)) }
+					class="btn btn-xs btn-ghost"
+				>
+					@views.ExternalIcon("h-3 w-3")
+				</a>
+			}
+		</div>
+	</div>
+}
+
+templ PipelineRunRow(r store.Run) {
+	<div
+		if r.Status == store.StatusRunning || r.Status == store.StatusQueued {
+			hx-ext="sse"
+			sse-connect={ fmt.Sprintf("/app/pipelines/%d/runs/%d/sse", r.RunPipelineID, r.RunID) }
+			sse-swap="message"
+			sse-close="close"
+			hx-swap="outerHTML"
+		}
+		class="w-full grid grid-cols-4 border border-base-content/20 rounded-md py-1 px-2"
+	>
+		<div class="flex items-center">{ r.RunID } </div>
+		<div class="flex items-center">{ r.Branch }</div>
+		<div
+			class={
+				"text-end font-bold flex items-center",
+				templ.KV("text-success", r.Status == store.StatusPassed),
+				templ.KV("text-error", r.Status == store.StatusFailed),
+				templ.KV("text-info", r.Status == store.StatusRunning),
+			}
+		>
+			{ r.Status }
+		</div>
+		<div class="flex justify-end items-center">
+			@components.Tooltip(components.TooltipProps{Tip: "Cancel run"}) {
+				@components.Modal(
+					components.ModalProps{
+						ID:    fmt.Sprintf("cancel_run_%d_modal", r.RunID),
+						Label: cancelPipelineRunModalButton(r.EndedOn != nil && !r.EndedOn.IsZero(), templ.Attributes{"onclick": fmt.Sprintf("cancel_run_%d_modal.showModal()", r.RunID)}),
+					}) {
+					<h2 class="card-title">Cancel pipeline run ID { fmt.Sprintf("%d", r.RunID) }</h2>
+					<p>Are you sure you want to cancel the pipeline run?</p>
+					<div class="flex justify-between items-center mt-8">
+						<form method="dialog">
+							<button class="btn">Close</button>
+							<script data-id={ fmt.Sprintf("cancel_run_%d_btn", r.RunID) }>
+                                ((form, btnId) => {
+                                    document.addEventListener("htmx:afterRequest", (evt) => {
+                                        if (evt.detail.elt.id == btnId && evt.detail.successful) {
+                                            form.querySelector("button").click()
+                                        }
+                                    })
+                                })(document.currentScript.parentElement, document.currentScript.getAttribute("data-id"))
+                            </script>
+						</form>
+						<button
+							id={ fmt.Sprintf("cancel_run_%d_btn", r.RunID) }
+							type="submit"
+							class="btn btn-error"
+							hx-post={ fmt.Sprintf("/app/pipelines/%d/runs/%d/cancel", r.RunPipelineID, r.RunID) }
+						>
+							Cancel
+						</button>
+					</div>
+				}
+			}
+			@components.Tooltip(components.TooltipProps{Tip: "Download artifacts"}) {
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("/app/pipelines/%d/runs/%d/artifacts", r.RunPipelineID, r.RunID)) }
+					class="btn btn-xs btn-ghost"
+				>
+					@views.DownloadArtifactsIcon()
+				</a>
+			}
+			@components.Tooltip(components.TooltipProps{Tip: "Run details"}) {
+				<a
+					href={ templ.SafeURL(fmt.Sprintf("/app/pipelines/%d/runs/%d", r.RunPipelineID, r.RunID)) }
+					class="btn btn-xs btn-ghost"
+				>
+					@views.ExternalIcon("h-4 w-4")
+				</a>
+			}
+		</div>
+	</div>
+}
+
+templ cancelPipelineRunModalButton(ended bool, attrs templ.Attributes) {
+	<button
+		class="btn btn-sm btn-ghost disabled:opacity-40"
+		{ attrs... }
+		if ended {
+			disabled
+		}
+	>
+		<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<circle cx="12" cy="12" r="9" class="stroke-base-content" stroke-width="2"></circle>
+			<path d="M18 18L6 6" class="stroke-base-content" stroke-width="2"></path>
+		</svg>
+	</button>
+}
+
+templ PipelineCardContent(p *store.Pipeline) {
+	<div
+		hx-get={ fmt.Sprintf("/app/pipelines/%d/card-content", p.PipelineID) }
+		hx-swap="outerHTML"
+		hx-trigger={ fmt.Sprintf("pipeline-updated from:#schedule_pipeline_%d_form", p.PipelineID) }
+	>
+		<p>Script: { p.ScriptPath }</p>
+		<p>{ p.Description }</p>
+		<p>
+			Schedule: 
+			if p.Schedule != nil {
+				<span>{ *p.Schedule }</span>
+			} else {
+				<span>N/A</span>
+			}
+		</p>
+	</div>
+}
+
+templ runPipelineModalButton(attrs templ.Attributes) {
+	<div class="tooltip" data-tip="Run pipeline">
+		<button
+			{ attrs... }
+			class="btn btn-ghost"
+		>
+			<svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<path class="stroke-base-content" d="M3 12L3 18.9671C3 21.2763 5.53435 22.736 7.59662 21.6145L10.7996 19.8727M3 8L3 5.0329C3 2.72368 5.53435 1.26402 7.59661 2.38548L20.4086 9.35258C22.5305 10.5065 22.5305 13.4935 20.4086 14.6474L14.0026 18.131" stroke-width="1.5" stroke-linecap="round"></path>
+			</svg>
+		</button>
+	</div>
+}
+
+templ schedulePipelineModalButton(attrs templ.Attributes) {
+	<div class="tooltip" data-tip="Set pipeline schedule">
+		<button { attrs... } class="btn btn-ghost">
+			@views.CalendarIcon()
+		</button>
+	</div>
+}

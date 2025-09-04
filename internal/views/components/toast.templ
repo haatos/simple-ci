@@ -1,0 +1,15 @@
+package components
+
+type ToastProps struct {
+	Name       string
+	ToastClass string
+	AlertClass string
+}
+
+templ Toast(props ToastProps) {
+	<div name={ props.Name } class={ "toast", props.ToastClass }>
+		<div class={ "alert", props.AlertClass }>
+			{ children... }
+		</div>
+	</div>
+}
