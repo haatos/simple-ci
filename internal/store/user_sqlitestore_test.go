@@ -26,6 +26,7 @@ var credentialStore *CredentialSQLiteStore
 var agentStore *AgentSQLiteStore
 var pipelineStore *PipelineSQLiteStore
 var runStore *RunSQLiteStore
+var apiKeyStore *APIKeySQLiteStore
 
 func TestMain(m *testing.M) {
 	db, err := sql.Open("sqlite", ":memory:")
@@ -45,6 +46,7 @@ func TestMain(m *testing.M) {
 	agentStore = NewAgentSQLiteStore(db, db)
 	pipelineStore = NewPipelineSQLiteStore(db, db)
 	runStore = NewRunSQLiteStore(db, db)
+	apiKeyStore = NewAPIKeySQLiteStore(db, db)
 	code := m.Run()
 	os.Exit(code)
 }
