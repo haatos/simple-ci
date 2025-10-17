@@ -20,10 +20,10 @@ import (
 )
 
 type Worker struct {
-	Output   string
-	OutputCh chan string
-	Run      *store.Run
-	RunCh    chan store.Run
+	Output      string
+	OutputCh    chan string
+	Run         *store.Run
+	RunStatusCh chan store.Run
 }
 
 type RunData struct {
@@ -42,7 +42,7 @@ func handleOutput(outputClients *SSEClientMap[string], w *Worker) {
 }
 
 func handleStatus(statusClients *SSEClientMap[store.Run], w *Worker) {
-	for r := range w.RunCh {
+	for r := range w.RunStatusCh {
 		statusClients.SendToClients(w.Run.RunID, r)
 	}
 }
@@ -55,7 +55,7 @@ func RunWorkers(
 	cancelRunMap *CancelMap[int64],
 ) {
 	for run := range runChan {
-		w := &Worker{OutputCh: make(chan string), Run: run, RunCh: make(chan store.Run)}
+		w := &Worker{OutputCh: make(chan string), Run: run, RunStatusCh: make(chan store.Run)}
 		outputClients.AddMap(run.RunID)
 		statusClients.AddMap(run.RunID)
 
@@ -90,7 +90,7 @@ func RunWorkers(
 				log.Println("err getting run by id")
 			} else {
 				w.Run = r
-				w.RunCh <- *r
+				w.RunStatusCh <- *r
 			}
 		}
 		cancelRunMap.RemoveCancel(run.RunID)
@@ -140,7 +140,7 @@ func processRun(
 		return err
 	}
 	w.Run = r
-	w.RunCh <- *r
+	w.RunStatusCh <- *r
 
 	signer, err := ssh.ParsePrivateKey(c.SSHPrivateKey)
 	if err != nil {
@@ -227,7 +227,7 @@ func processRun(
 		return err
 	}
 	w.Run = r
-	w.RunCh <- *r
+	w.RunStatusCh <- *r
 
 	// manage artifacts??
 
