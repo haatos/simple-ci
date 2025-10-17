@@ -41,16 +41,17 @@ func main() {
 		security.NewAESEncrypter(),
 	)
 	agentSvc := service.NewAgentService(store.NewAgentSQLiteStore(rdb, rwdb), credSvc)
-	pipelineSvc := service.NewPipelineService(
-		store.NewPipelineSQLiteStore(rdb, rwdb),
-		store.NewRunSQLiteStore(rdb, rwdb),
-		agentSvc,
-		credSvc,
-		pipelineScheduler,
-	)
 	apiKeySvc := service.NewAPIKeyService(
 		store.NewAPIKeySQLiteStore(rdb, rwdb),
 		service.NewUUIDGen(),
+	)
+	pipelineSvc := service.NewPipelineService(
+		store.NewPipelineSQLiteStore(rdb, rwdb),
+		store.NewRunSQLiteStore(rdb, rwdb),
+		credSvc,
+		agentSvc,
+		apiKeySvc,
+		pipelineScheduler,
 	)
 
 	userSvc.InitializeSuperuser(context.Background())
@@ -128,6 +129,10 @@ func main() {
 
 	app.GET("/pipelines/:pipeline_id/latest-runs", pipelineH.GetLatestPipelineRuns)
 	app.POST("/pipelines/:pipeline_id/runs", pipelineH.PostPipelineRun)
+	app.POST(
+		"/pipelines/:pipeline_id/runs/webhook-trigger/:branch",
+		pipelineH.PostPipelineRunWebhookTrigger,
+	)
 	app.GET("/pipelines/:pipeline_id/runs/:run_id", pipelineH.GetPipelineRunPage)
 	app.GET("/pipelines/:pipeline_id/runs", pipelineH.GetPipelineRunsPage)
 	app.GET("/pipelines/:pipeline_id/runs-list", pipelineH.GetPipelineRunsList)

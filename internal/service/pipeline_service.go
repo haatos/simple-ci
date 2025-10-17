@@ -73,6 +73,8 @@ type PipelineServicer interface {
 	ListLatestPipelineRuns(context.Context, int64, int64) ([]store.Run, error)
 	ListPipelineRunsPaginated(context.Context, int64, int64, int64) ([]store.Run, error)
 	GetPipelineRunCount(context.Context, int64) (int64, error)
+
+	GetAPIKeyByValue(context.Context, string) (*store.APIKey, error)
 }
 
 type PipelineService struct {
@@ -80,21 +82,24 @@ type PipelineService struct {
 	runStore          store.RunStore
 	credentialService CredentialServicer
 	agentService      AgentServicer
+	apiKeyService     APIKeyServicer
 	scheduler         gocron.Scheduler
 }
 
 func NewPipelineService(
 	pipelineStore store.PipelineStore,
 	runStore store.RunStore,
-	agentService AgentServicer,
 	credentialService CredentialServicer,
+	agentService AgentServicer,
+	apiKeyService APIKeyServicer,
 	scheduler gocron.Scheduler,
 ) *PipelineService {
 	return &PipelineService{
 		pipelineStore:     pipelineStore,
 		runStore:          runStore,
-		agentService:      agentService,
 		credentialService: credentialService,
+		agentService:      agentService,
+		apiKeyService:     apiKeyService,
 		scheduler:         scheduler,
 	}
 }
@@ -499,4 +504,11 @@ func (s *PipelineService) GetPipelineRunCount(
 	ctx context.Context, id int64,
 ) (int64, error) {
 	return s.runStore.CountPipelineRuns(ctx, id)
+}
+
+func (s *PipelineService) GetAPIKeyByValue(
+	ctx context.Context,
+	value string,
+) (*store.APIKey, error) {
+	return s.apiKeyService.GetAPIKeyByValue(ctx, value)
 }

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/labstack/echo/v4"
@@ -233,6 +234,17 @@ func (m *MockPipelineService) ListPipelineRunsPaginated(
 func (m *MockPipelineService) GetPipelineRunCount(ctx context.Context, id int64) (int64, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockPipelineService) GetAPIKeyByValue(
+	ctx context.Context,
+	value string,
+) (*store.APIKey, error) {
+	args := m.Called(ctx, value)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.APIKey), nil
 }
 
 func TestPipelinesHandler_GetPipelinesPage(t *testing.T) {
@@ -674,6 +686,124 @@ func TestPipelinesHandler_GetPipelineRunPage(t *testing.T) {
 		assert.NotContains(t, body, "<html")
 		assert.Contains(t, body, "<main")
 		assert.Contains(t, body, `id="output-textbox"`)
+	})
+}
+
+func TestPipelinesHandler_PostPipelineRunWebhookTrigger(t *testing.T) {
+	t.Run("success - pipeline run is triggered", func(t *testing.T) {
+		// arrange
+		branch := "dev"
+		ak := generateAPIKey()
+		p := generatePipeline(0)
+		expectedRun := generateRun(p.PipelineID)
+		ctx := context.Background()
+		mockService := new(MockPipelineService)
+		mockService.On("GetPipelineByID", ctx, p.PipelineID).Return(p, nil)
+		mockService.On("GetAPIKeyByValue", ctx, ak.Value).Return(ak, nil)
+		mockService.On("CreateRun", ctx, p.PipelineID, branch).Return(expectedRun, nil)
+
+		e := echo.New()
+		req := httptest.NewRequest(
+			http.MethodPost,
+			fmt.Sprintf(
+				"/app/pipelines/%d/runs/webhook-trigger/%s",
+				p.PipelineID, branch,
+			),
+			nil,
+		)
+		req.Header.Set(internal.WebhookTriggerKeyHeader, ak.Value)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetParamNames("pipeline_id", "branch")
+		c.SetParamValues(fmt.Sprintf("%d", p.PipelineID), branch)
+		h := NewPipelineHandler(mockService)
+		var queuedRun *store.Run
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			for r := range h.RunCh {
+				queuedRun = r
+				wg.Done()
+			}
+		})
+
+		// act
+		err := h.PostPipelineRunWebhookTrigger(c)
+		wg.Wait()
+
+		// assert
+		assert.NoError(t, err)
+		assert.NotNil(t, queuedRun)
+		assert.Equal(t, expectedRun.RunID, queuedRun.RunID)
+	})
+	t.Run("failure - api key is not found", func(t *testing.T) {
+		// arrange
+		branch := "dev"
+		ak := generateAPIKey()
+		p := generatePipeline(0)
+		ctx := context.Background()
+		mockService := new(MockPipelineService)
+		mockService.On("GetPipelineByID", ctx, p.PipelineID).Return(p, nil)
+		mockService.On("GetAPIKeyByValue", ctx, ak.Value).Return(nil, sql.ErrNoRows)
+
+		e := echo.New()
+		req := httptest.NewRequest(
+			http.MethodPost,
+			fmt.Sprintf(
+				"/app/pipelines/%d/runs/webhook-trigger/%s",
+				p.PipelineID, branch,
+			),
+			nil,
+		)
+		req.Header.Set(internal.WebhookTriggerKeyHeader, ak.Value)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetParamNames("pipeline_id", "branch")
+		c.SetParamValues(fmt.Sprintf("%d", p.PipelineID), branch)
+		h := NewPipelineHandler(mockService)
+
+		// act
+		err := h.PostPipelineRunWebhookTrigger(c)
+
+		// assert
+		assert.Error(t, err)
+		echoErr, ok := err.(*echo.HTTPError)
+		assert.True(t, ok)
+		assert.Contains(t, echoErr.Error(), "invalid api key")
+	})
+	t.Run("failure - pipeline is not found", func(t *testing.T) {
+		// arrange
+		branch := "dev"
+		ak := generateAPIKey()
+		p := generatePipeline(0)
+		ctx := context.Background()
+		mockService := new(MockPipelineService)
+		mockService.On("GetPipelineByID", ctx, p.PipelineID).Return(nil, sql.ErrNoRows)
+		mockService.On("GetAPIKeyByValue", ctx, ak.Value).Return(ak, nil)
+
+		e := echo.New()
+		req := httptest.NewRequest(
+			http.MethodPost,
+			fmt.Sprintf(
+				"/app/pipelines/%d/runs/webhook-trigger/%s",
+				p.PipelineID, branch,
+			),
+			nil,
+		)
+		req.Header.Set(internal.WebhookTriggerKeyHeader, ak.Value)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetParamNames("pipeline_id", "branch")
+		c.SetParamValues(fmt.Sprintf("%d", p.PipelineID), branch)
+		h := NewPipelineHandler(mockService)
+
+		// act
+		err := h.PostPipelineRunWebhookTrigger(c)
+
+		// assert
+		assert.Error(t, err)
+		echoErr, ok := err.(*echo.HTTPError)
+		assert.True(t, ok)
+		assert.Contains(t, echoErr.Error(), "pipeline not found")
 	})
 }
 

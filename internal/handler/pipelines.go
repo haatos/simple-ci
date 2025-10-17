@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
+	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/util"
@@ -214,6 +215,46 @@ func (h *PipelineHandler) PostPipelineRun(c echo.Context) error {
 	h.RunCh <- r
 
 	return hxRedirect(c, fmt.Sprintf("/app/pipelines/%d/runs/%d", p.PipelineID, r.RunID))
+}
+
+func (h *PipelineHandler) PostPipelineRunWebhookTrigger(c echo.Context) error {
+	apiKeyValue := c.Request().Header.Get(internal.WebhookTriggerKeyHeader)
+	rp := new(RunParams)
+	if err := c.Bind(rp); err != nil {
+		return echo.NewHTTPError(
+			http.StatusBadRequest, "invalid pipeline data",
+		)
+	}
+	if rp.Branch == "" {
+		rp.Branch = "main"
+	}
+
+	_, err := h.pipelineService.GetAPIKeyByValue(c.Request().Context(), apiKeyValue)
+	if err != nil {
+		return echo.NewHTTPError(
+			http.StatusBadRequest, "invalid api key",
+		)
+	}
+
+	p, err := h.pipelineService.GetPipelineByID(c.Request().Context(), rp.PipelineID)
+	if err != nil {
+		return echo.NewHTTPError(
+			http.StatusNotFound, "pipeline not found",
+		)
+	}
+
+	r, err := h.pipelineService.CreateRun(
+		c.Request().Context(), p.PipelineID, rp.Branch,
+	)
+	if err != nil {
+		return echo.NewHTTPError(
+			http.StatusInternalServerError, "unable to create run",
+		)
+	}
+
+	h.RunCh <- r
+
+	return c.NoContent(http.StatusCreated)
 }
 
 func (h *PipelineHandler) GetPipelineRunPage(c echo.Context) error {

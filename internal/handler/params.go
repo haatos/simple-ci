@@ -33,7 +33,7 @@ type PipelineParams struct {
 type RunParams struct {
 	PipelineID int64  `param:"pipeline_id"`
 	RunID      int64  `param:"run_id"`
-	Branch     string `                    form:"branch"`
+	Branch     string `param:"branch"      form:"branch"`
 }
 
 type ListRunsParams struct {
