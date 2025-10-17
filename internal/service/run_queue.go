@@ -1,4 +1,4 @@
-package handler
+package service
 
 import (
 	"bufio"
@@ -13,93 +13,113 @@ import (
 
 	"github.com/goccy/go-yaml"
 	"github.com/haatos/simple-ci/internal"
-	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/types"
 	"golang.org/x/crypto/ssh"
 )
 
-type Worker struct {
-	Output      string
-	OutputCh    chan string
-	Run         *store.Run
-	RunStatusCh chan store.Run
+func NewRunQueue(maxRuns int64) *RunQueue {
+	return &RunQueue{
+		Queue:            make(chan *store.Run, maxRuns),
+		Done:             make(chan struct{}),
+		OutputSSEClients: NewSSEClientMap[string](),
+		StatusSSEClients: NewSSEClientMap[store.Run](),
+		CancelRunMap:     NewCancelMap[int64](),
+	}
 }
 
-type RunData struct {
-	Credential *store.Credential
-	Agent      *store.Agent
-	Pipeline   *store.Pipeline
-	Run        *store.Run
-	Workdir    string
+type RunQueue struct {
+	Queue chan *store.Run
+	Done  chan struct{}
+
+	pipelineService  PipelineServicer
+	OutputSSEClients *SSEClientMap[string]
+	StatusSSEClients *SSEClientMap[store.Run]
+	CancelRunMap     *CancelMap[int64]
+
+	mu sync.Mutex
+}
+
+func (rq *RunQueue) Run(pipelineService PipelineServicer) {
+	for {
+		select {
+		case run := <-rq.Queue:
+			w := &Worker{
+				OutputCh:    make(chan string),
+				Run:         run,
+				RunStatusCh: make(chan store.Run),
+			}
+
+			go handleOutput(rq.OutputSSEClients, w)
+			go handleStatus(rq.StatusSSEClients, w)
+			ctx, cancel := context.WithCancel(context.Background())
+			rq.CancelRunMap.AddCancel(run.RunID, cancel)
+
+			if err := processRun(ctx, pipelineService, w); err != nil {
+				endedOn := time.Now().UTC()
+				run.EndedOn = &endedOn
+				run.Output = &w.Output
+				if rcErr, ok := err.(RunCancelError); ok {
+					run.Status = store.StatusCancelled
+					w.OutputCh <- rcErr.Message
+				} else {
+					run.Status = store.StatusFailed
+				}
+				if sqlErr := pipelineService.UpdateRunEndedOn(
+					context.Background(),
+					run.RunID,
+					run.Status,
+					run.Output,
+					run.Artifacts,
+					run.EndedOn,
+				); sqlErr != nil {
+					log.Println("err updating run status to failed:", errors.Join(err, sqlErr))
+				}
+				log.Println("err processing pipeline:", err)
+				r, err := pipelineService.GetRunByID(context.Background(), run.RunID)
+				if err != nil {
+					log.Println("err getting run by id")
+				} else {
+					w.Run = r
+					w.RunStatusCh <- *r
+				}
+			}
+			close(w.OutputCh)
+			close(w.RunStatusCh)
+			rq.CancelRunMap.RemoveCancel(run.RunID)
+		case <-rq.Done:
+			close(rq.Queue)
+			return
+		}
+	}
+}
+
+func (rq *RunQueue) Shutdown() {
+	rq.mu.Lock()
+	defer rq.mu.Unlock()
+	select {
+	case <-rq.Done:
+	default:
+		close(rq.Done)
+	}
 }
 
 func handleOutput(outputClients *SSEClientMap[string], w *Worker) {
 	for out := range w.OutputCh {
 		w.Output += out
-		outputClients.SendToClients(w.Run.RunID, out)
+		outputClients.SendToClients(out)
 	}
 }
 
 func handleStatus(statusClients *SSEClientMap[store.Run], w *Worker) {
 	for r := range w.RunStatusCh {
-		statusClients.SendToClients(w.Run.RunID, r)
-	}
-}
-
-func RunWorkers(
-	pipelineService service.PipelineServicer,
-	runChan chan *store.Run,
-	outputClients *SSEClientMap[string],
-	statusClients *SSEClientMap[store.Run],
-	cancelRunMap *CancelMap[int64],
-) {
-	for run := range runChan {
-		w := &Worker{OutputCh: make(chan string), Run: run, RunStatusCh: make(chan store.Run)}
-		outputClients.AddMap(run.RunID)
-		statusClients.AddMap(run.RunID)
-
-		go handleOutput(outputClients, w)
-		go handleStatus(statusClients, w)
-		ctx, cancel := context.WithCancel(context.Background())
-		cancelRunMap.AddCancel(run.RunID, cancel)
-
-		if err := processRun(ctx, pipelineService, w); err != nil {
-			endedOn := time.Now().UTC()
-			run.EndedOn = &endedOn
-			run.Output = &w.Output
-			if rcErr, ok := err.(RunCancelError); ok {
-				run.Status = store.StatusCancelled
-				w.OutputCh <- rcErr.Message
-			} else {
-				run.Status = store.StatusFailed
-			}
-			if sqlErr := pipelineService.UpdateRunEndedOn(
-				context.Background(),
-				run.RunID,
-				run.Status,
-				run.Output,
-				run.Artifacts,
-				run.EndedOn,
-			); sqlErr != nil {
-				log.Println("err updating run status to failed:", errors.Join(err, sqlErr))
-			}
-			log.Println("err processing pipeline:", err)
-			r, err := pipelineService.GetRunByID(context.Background(), run.RunID)
-			if err != nil {
-				log.Println("err getting run by id")
-			} else {
-				w.Run = r
-				w.RunStatusCh <- *r
-			}
-		}
-		cancelRunMap.RemoveCancel(run.RunID)
+		statusClients.SendToClients(r)
 	}
 }
 
 func processRun(
 	ctx context.Context,
-	pipelineService service.PipelineServicer,
+	pipelineService PipelineServicer,
 	w *Worker,
 ) error {
 	p, a, c, err := pipelineService.GetPipelineAgentAndCredential(
@@ -226,10 +246,9 @@ func processRun(
 		w.OutputCh <- "err getting run by id"
 		return err
 	}
+
 	w.Run = r
 	w.RunStatusCh <- *r
-
-	// manage artifacts??
 
 	return nil
 }

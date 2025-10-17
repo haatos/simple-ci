@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/haatos/simple-ci/internal"
+	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/labstack/echo/v4"
@@ -139,9 +139,9 @@ func (m *MockPipelineService) ListScheduledPipelines(
 }
 
 func (m *MockPipelineService) UpdatePipelineSchedule(
-	ctx context.Context, runCh chan *store.Run, id int64, schedule, branch *string,
+	ctx context.Context, id int64, schedule, branch *string,
 ) error {
-	args := m.Called(ctx, runCh, id, schedule, branch)
+	args := m.Called(ctx, id, schedule, branch)
 	return args.Error(0)
 }
 
@@ -245,6 +245,61 @@ func (m *MockPipelineService) GetAPIKeyByValue(
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*store.APIKey), nil
+}
+
+func (m *MockPipelineService) InitializeRunQueues(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockPipelineService) AddRunQueues(ids []int64, maxRuns int64) {
+	m.Called(ids, maxRuns)
+}
+
+func (m *MockPipelineService) StartRunQueues() {
+	m.Called()
+}
+
+func (m *MockPipelineService) AddRunQueue(id int64, maxRuns int64) {
+	m.Called(id, maxRuns)
+}
+
+func (m *MockPipelineService) StartRunQueue(id int64) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+func (m *MockPipelineService) GetRunQueue(id int64) (*service.RunQueue, bool) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, false
+	}
+	return args.Get(0).(*service.RunQueue), true
+}
+
+func (m *MockPipelineService) RemoveRunQueue(id int64) {
+	m.Called(id)
+}
+
+func (m *MockPipelineService) EnqueueRun(r *store.Run) error {
+	args := m.Called(r)
+	return args.Error(0)
+}
+
+func (m *MockPipelineService) ShutdownRunQueue(id int64) {
+	m.Called(id)
+}
+
+func (m *MockPipelineService) ShutdownAll() {
+	m.Called()
+}
+
+func (m *MockPipelineService) ScheduleRun() {
+	m.Called()
+}
+
+func (m *MockPipelineService) Run(id int64) {
+	m.Called(id)
 }
 
 func TestPipelinesHandler_GetPipelinesPage(t *testing.T) {
@@ -556,6 +611,10 @@ func TestPipelinesHandler_PostPipelineRun(t *testing.T) {
 			expectedPipeline.PipelineID,
 			expectedRun.Branch,
 		).Return(expectedRun, nil)
+		mockPipelineService.On(
+			"EnqueueRun",
+			expectedRun,
+		).Return(nil)
 
 		formData := url.Values{}
 		formData.Set("branch", expectedRun.Branch)
@@ -573,22 +632,12 @@ func TestPipelinesHandler_PostPipelineRun(t *testing.T) {
 		c.SetParamNames("pipeline_id")
 		c.SetParamValues(fmt.Sprintf("%d", expectedPipeline.PipelineID))
 		h := NewPipelineHandler(mockPipelineService)
-		var queuedRun *store.Run
-		var wg sync.WaitGroup
-		wg.Go(func() {
-			for r := range h.RunCh {
-				queuedRun = r
-				wg.Done()
-			}
-		})
 
 		// act
 		err := h.PostPipelineRun(c)
-		wg.Wait()
 
 		// assert
 		assert.NoError(t, err)
-		assert.Equal(t, expectedRun.RunID, queuedRun.RunID)
 		hxRedirect := rec.Header().Get("hx-redirect")
 		assert.Equal(
 			t,
@@ -701,6 +750,7 @@ func TestPipelinesHandler_PostPipelineRunWebhookTrigger(t *testing.T) {
 		mockService.On("GetPipelineByID", ctx, p.PipelineID).Return(p, nil)
 		mockService.On("GetAPIKeyByValue", ctx, ak.Value).Return(ak, nil)
 		mockService.On("CreateRun", ctx, p.PipelineID, branch).Return(expectedRun, nil)
+		mockService.On("EnqueueRun", expectedRun).Return(nil)
 
 		e := echo.New()
 		req := httptest.NewRequest(
@@ -717,23 +767,12 @@ func TestPipelinesHandler_PostPipelineRunWebhookTrigger(t *testing.T) {
 		c.SetParamNames("pipeline_id", "branch")
 		c.SetParamValues(fmt.Sprintf("%d", p.PipelineID), branch)
 		h := NewPipelineHandler(mockService)
-		var queuedRun *store.Run
-		var wg sync.WaitGroup
-		wg.Go(func() {
-			for r := range h.RunCh {
-				queuedRun = r
-				wg.Done()
-			}
-		})
 
 		// act
 		err := h.PostPipelineRunWebhookTrigger(c)
-		wg.Wait()
 
 		// assert
 		assert.NoError(t, err)
-		assert.NotNil(t, queuedRun)
-		assert.Equal(t, expectedRun.RunID, queuedRun.RunID)
 	})
 	t.Run("failure - api key is not found", func(t *testing.T) {
 		// arrange

@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/service"
-	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/haatos/simple-ci/internal/views"
 	"github.com/haatos/simple-ci/internal/views/pages"
@@ -27,22 +26,13 @@ const maxRunsPerPage int64 = 10
 
 type PipelineHandler struct {
 	pipelineService service.PipelineServicer
-	RunCh           chan *store.Run
-
-	OutputSSEClients *SSEClientMap[string]
-	StatusSSEClients *SSEClientMap[store.Run]
-	CancelRunMap     *CancelMap[int64]
 }
 
 func NewPipelineHandler(
 	pipelineService service.PipelineServicer,
 ) *PipelineHandler {
 	return &PipelineHandler{
-		pipelineService:  pipelineService,
-		RunCh:            make(chan *store.Run),
-		OutputSSEClients: NewSSEClientMap[string](),
-		StatusSSEClients: NewSSEClientMap[store.Run](),
-		CancelRunMap:     NewCancelMap[int64](),
+		pipelineService: pipelineService,
 	}
 }
 
@@ -154,7 +144,7 @@ func (h *PipelineHandler) PatchPipelineSchedule(c echo.Context) error {
 	}
 
 	if err := h.pipelineService.UpdatePipelineSchedule(
-		c.Request().Context(), h.RunCh, pp.PipelineID, pp.Schedule, pp.ScheduleBranch,
+		c.Request().Context(), pp.PipelineID, pp.Schedule, pp.ScheduleBranch,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return newError(c, err, http.StatusBadRequest, "invalid pipeline id")
@@ -212,7 +202,9 @@ func (h *PipelineHandler) PostPipelineRun(c echo.Context) error {
 		return newError(c, err, http.StatusInternalServerError, "unable to create pipeline run")
 	}
 
-	h.RunCh <- r
+	if err := h.pipelineService.EnqueueRun(r); err != nil {
+		return newError(c, err, http.StatusInternalServerError, "pipeline run queue is full")
+	}
 
 	return hxRedirect(c, fmt.Sprintf("/app/pipelines/%d/runs/%d", p.PipelineID, r.RunID))
 }
@@ -252,7 +244,11 @@ func (h *PipelineHandler) PostPipelineRunWebhookTrigger(c echo.Context) error {
 		)
 	}
 
-	h.RunCh <- r
+	if err := h.pipelineService.EnqueueRun(r); err != nil {
+		return echo.NewHTTPError(
+			http.StatusInternalServerError, "pipeline run queue is full",
+		).WithInternal(err)
+	}
 
 	return c.NoContent(http.StatusCreated)
 }
@@ -352,22 +348,23 @@ func (h *PipelineHandler) GetPipelineRunSSE(c echo.Context) error {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	if !h.StatusSSEClients.HasMap(rp.RunID) {
+	rq, ok := h.pipelineService.GetRunQueue(rp.PipelineID)
+	if !ok {
 		return nil
 	}
 
 	id := uuid.NewString()
 
-	h.StatusSSEClients.AddClient(rp.RunID, id)
+	rq.StatusSSEClients.AddClient(rp.RunID, id)
 	defer func() {
-		h.StatusSSEClients.RemoveClient(rp.RunID, id)
+		rq.StatusSSEClients.RemoveClient(rp.RunID, id)
 	}()
 
 	for {
 		select {
 		case <-c.Request().Context().Done():
 			return nil
-		case out := <-h.StatusSSEClients.GetClient(rp.RunID, id):
+		case out := <-rq.StatusSSEClients.GetClient(rp.RunID, id):
 			b := new(bytes.Buffer)
 			if err := pages.PipelineRunRow(out).Render(c.Request().Context(), b); err != nil {
 				log.Println("err rendering pipeline run row:", err)
@@ -478,14 +475,15 @@ func (h *PipelineHandler) GetRunOutput(c echo.Context) error {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	if !h.OutputSSEClients.HasMap(rp.RunID) {
+	rq, ok := h.pipelineService.GetRunQueue(rp.PipelineID)
+	if !ok {
 		return nil
 	}
 
 	id := uuid.NewString()
 
-	h.OutputSSEClients.AddClient(rp.RunID, id)
-	defer h.OutputSSEClients.RemoveClient(rp.RunID, id)
+	rq.OutputSSEClients.AddClient(rp.RunID, id)
+	defer rq.OutputSSEClients.RemoveClient(rp.RunID, id)
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -494,7 +492,7 @@ func (h *PipelineHandler) GetRunOutput(c echo.Context) error {
 		case <-c.Request().Context().Done():
 			// client disconnected
 			return nil
-		case out := <-h.OutputSSEClients.GetClient(rp.RunID, id):
+		case out := <-rq.OutputSSEClients.GetClient(rp.RunID, id):
 			// worker's output channel has data
 			event := &Event{Data: []byte(out)}
 			if err := event.MarshalTo(w); err != nil {
@@ -519,22 +517,23 @@ func (h *PipelineHandler) GetRunStatus(c echo.Context) error {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	if !h.StatusSSEClients.HasMap(rp.RunID) {
+	rq, ok := h.pipelineService.GetRunQueue(rp.PipelineID)
+	if !ok {
 		return nil
 	}
 
 	id := uuid.NewString()
-	h.StatusSSEClients.AddClient(rp.RunID, id)
+	rq.StatusSSEClients.AddClient(rp.RunID, id)
 
 	defer func() {
-		h.StatusSSEClients.RemoveClient(rp.RunID, id)
+		rq.StatusSSEClients.RemoveClient(rp.RunID, id)
 	}()
 
 	for {
 		select {
 		case <-c.Request().Context().Done():
 			return nil
-		case out := <-h.StatusSSEClients.GetClient(rp.RunID, id):
+		case out := <-rq.StatusSSEClients.GetClient(rp.RunID, id):
 			b := new(bytes.Buffer)
 			if err := pages.PipelineRunPageStatusDiv(&out).Render(c.Request().Context(), b); err != nil {
 				log.Println("err rendering run status div:", err)
@@ -557,7 +556,12 @@ func (h *PipelineHandler) PostCancelPipelineRun(c echo.Context) error {
 		return newError(c, err, http.StatusBadRequest, "invalid pipeline or run ID")
 	}
 
-	h.CancelRunMap.Call(rp.RunID)
+	rq, ok := h.pipelineService.GetRunQueue(rp.PipelineID)
+	if !ok {
+		return renderToast(c, views.FailureToast("pipline run queue not found", 3000))
+	}
+
+	rq.CancelRunMap.Call(rp.RunID)
 
 	return renderToast(c, views.SuccessToast("cancelling run...", 3000))
 }
@@ -579,8 +583,9 @@ func (h *PipelineHandler) SchedulePipelines(pipelineScheduler gocron.Scheduler) 
 				if err != nil {
 					log.Println("err running scheduled job: ", err)
 				}
-
-				h.RunCh <- r
+				if err := h.pipelineService.EnqueueRun(r); err != nil {
+					log.Println("pipeline run queue is full")
+				}
 			}),
 		)
 		if err != nil {

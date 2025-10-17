@@ -157,7 +157,7 @@ func (m *MockRunStore) ListLatestPipelineRuns(
 	ctx context.Context,
 	id, limit int64,
 ) ([]store.Run, error) {
-	args := m.Called(ctx, id)
+	args := m.Called(ctx, id, limit)
 	return args.Get(0).([]store.Run), args.Error(1)
 }
 
@@ -352,9 +352,7 @@ func TestPipelineService_GetPipelineAgentAndCredential(t *testing.T) {
 			nil,
 			mockCredentialService,
 			mockAgentService,
-			nil,
-			nil,
-		)
+			nil, nil)
 
 		// act
 		p, a, c, err := pipelineService.GetPipelineAgentAndCredential(
@@ -528,7 +526,6 @@ func TestPipelineService_UpdatePipelineSchedule(t *testing.T) {
 		// act
 		err := pipelineService.UpdatePipelineSchedule(
 			context.Background(),
-			nil,
 			expectedPipeline.PipelineID,
 			&schedule,
 			&branch,
@@ -550,9 +547,7 @@ func TestPipelineService_CreateRun(t *testing.T) {
 			context.Background(),
 			expectedRun.RunPipelineID, branch,
 		).Return(expectedRun, nil)
-		pipelineService := NewPipelineService(
-			nil, mockStore, nil, nil, nil, nil,
-		)
+		pipelineService := NewPipelineService(nil, mockStore, nil, nil, nil, nil)
 
 		// act
 		r, err := pipelineService.CreateRun(
@@ -690,6 +685,203 @@ func TestPipelineService_ListPipelineRuns(t *testing.T) {
 		// assert
 		assert.NoError(t, err)
 		assert.Equal(t, len(expectedRuns), len(pipelines))
+	})
+}
+
+func TestPipelineService_ListLatestPipelineRuns(t *testing.T) {
+	t.Run("success - latest pipelines are found", func(t *testing.T) {
+		// arrange
+		var limit int64 = 3
+		expectedPipeline := generatePipeline(0)
+		expectedRuns := []store.Run{
+			*generateRun(0),
+			*generateRun(0),
+		}
+		mockStore := new(MockRunStore)
+		mockStore.On(
+			"ListLatestPipelineRuns",
+			context.Background(), expectedPipeline.PipelineID, limit,
+		).Return(expectedRuns, nil)
+		pipelineService := NewPipelineService(nil, mockStore, nil, nil, nil, nil)
+
+		// act
+		runs, err := pipelineService.ListLatestPipelineRuns(
+			context.Background(),
+			expectedPipeline.PipelineID,
+			limit,
+		)
+
+		// assert
+		assert.NoError(t, err)
+		assert.NotNil(t, runs)
+		assert.Equal(t, len(expectedRuns), len(runs))
+	})
+}
+
+func TestPipelineService_ListPipelineRunsPaginated(t *testing.T) {
+	t.Run("success - pipelines are found", func(t *testing.T) {
+		// arrange
+		var limit int64 = 3
+		var offset int64 = 10
+		expectedPipeline := generatePipeline(0)
+		expectedRuns := []store.Run{
+			*generateRun(0),
+			*generateRun(0),
+		}
+		mockStore := new(MockRunStore)
+		mockStore.On(
+			"ListPipelineRunsPaginated",
+			context.Background(), expectedPipeline.PipelineID, limit, offset,
+		).Return(expectedRuns, nil)
+		pipelineService := NewPipelineService(nil, mockStore, nil, nil, nil, nil)
+
+		// act
+		runs, err := pipelineService.ListPipelineRunsPaginated(
+			context.Background(),
+			expectedPipeline.PipelineID,
+			limit,
+			offset,
+		)
+
+		// assert
+		assert.NoError(t, err)
+		assert.NotNil(t, runs)
+		assert.Equal(t, len(expectedRuns), len(runs))
+	})
+}
+
+func TestPipelineService_GetPipelineRunCount(t *testing.T) {
+	t.Run("success - pipeline run count is returned", func(t *testing.T) {
+		// arrange
+		var expectedCount int64 = 5
+		expectedPipeline := generatePipeline(0)
+		mockStore := new(MockRunStore)
+		mockStore.On(
+			"CountPipelineRuns",
+			context.Background(), expectedPipeline.PipelineID,
+		).Return(expectedCount, nil)
+		pipelineService := NewPipelineService(nil, mockStore, nil, nil, nil, nil)
+
+		// act
+		count, err := pipelineService.GetPipelineRunCount(
+			context.Background(),
+			expectedPipeline.PipelineID,
+		)
+
+		// assert
+		assert.NoError(t, err)
+		assert.Equal(t, expectedCount, count)
+	})
+}
+
+func TestPipelineService_GetAPIKeyByValue(t *testing.T) {
+	t.Run("success - api key is found", func(t *testing.T) {
+		// arrange
+		ctx := context.Background()
+		expectedAPIKey := generateAPIKey()
+		mockService := new(testutil.MockAPIKeyService)
+		mockService.On(
+			"GetAPIKeyByValue",
+			ctx,
+			expectedAPIKey.Value,
+		).Return(expectedAPIKey, nil)
+		pipelineService := NewPipelineService(nil, nil, nil, nil, mockService, nil)
+
+		// act
+		ak, err := pipelineService.GetAPIKeyByValue(ctx, expectedAPIKey.Value)
+
+		// assert
+		assert.NoError(t, err)
+		assert.NotNil(t, ak)
+		assert.Equal(t, expectedAPIKey.ID, ak.ID)
+		assert.Equal(t, expectedAPIKey.Value, ak.Value)
+	})
+}
+
+func TestPipelineService_InitializeRunQueues(t *testing.T) {
+	t.Run("success - run queues are initialized", func(t *testing.T) {
+		// arrange
+		ctx := context.Background()
+		expectedPipelines := []*store.Pipeline{generatePipeline(0), generatePipeline(0)}
+		mockStore := new(MockPipelineStore)
+		mockStore.On(
+			"ListPipelines",
+			ctx,
+		).Return(expectedPipelines, nil)
+		pipelineService := NewPipelineService(mockStore, nil, nil, nil, nil, nil)
+
+		// act
+		err := pipelineService.InitializeRunQueues(ctx)
+
+		// assert
+		assert.NoError(t, err)
+	})
+}
+
+func TestPipelineService_GetRunQueue(t *testing.T) {
+	t.Run("success - run queue is found", func(t *testing.T) {
+		// arrange
+		p := generatePipeline(0)
+		pipelineService := NewPipelineService(nil, nil, nil, nil, nil, nil)
+		pipelineService.AddRunQueue(p.PipelineID, 3)
+
+		// act
+		rq, ok := pipelineService.GetRunQueue(p.PipelineID)
+
+		// assert
+		assert.True(t, ok)
+		assert.NotNil(t, rq)
+	})
+}
+
+func TestPipelineService_RemoveRunQueue(t *testing.T) {
+	t.Run("success - run queue is removed", func(t *testing.T) {
+		// arrange
+		p := generatePipeline(0)
+		pipelineService := NewPipelineService(nil, nil, nil, nil, nil, nil)
+		pipelineService.AddRunQueue(p.PipelineID, 3)
+		_, ok := pipelineService.GetRunQueue(p.PipelineID)
+		assert.True(t, ok)
+
+		// act
+		pipelineService.RemoveRunQueue(p.PipelineID)
+		rq, ok := pipelineService.GetRunQueue(p.PipelineID)
+
+		// assert
+		assert.False(t, ok)
+		assert.Nil(t, rq)
+	})
+}
+
+func TestPipelineService_EnqueueRun(t *testing.T) {
+	t.Run("success - run is enqueued", func(t *testing.T) {
+		// arrange
+		p := generatePipeline(0)
+		r := generateRun(p.PipelineID)
+		pipelineService := NewPipelineService(nil, nil, nil, nil, nil, nil)
+		pipelineService.AddRunQueue(p.PipelineID, 2)
+
+		// act
+		err := pipelineService.EnqueueRun(r)
+
+		// assert
+		assert.NoError(t, err)
+	})
+	t.Run("failure - run queue is full", func(t *testing.T) {
+		// arrange
+		p := generatePipeline(0)
+		r := generateRun(p.PipelineID)
+		pipelineService := NewPipelineService(nil, nil, nil, nil, nil, nil)
+		pipelineService.AddRunQueue(p.PipelineID, 1)
+		err := pipelineService.EnqueueRun(r)
+		assert.NoError(t, err)
+
+		// act
+		r = generateRun(p.PipelineID)
+		err = pipelineService.EnqueueRun(r)
+
+		// assert
+		assert.Error(t, err)
 	})
 }
 

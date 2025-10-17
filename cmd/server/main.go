@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"net/http"
 
 	assets "github.com/haatos/simple-ci"
@@ -53,6 +54,9 @@ func main() {
 		apiKeySvc,
 		pipelineScheduler,
 	)
+	if err := pipelineSvc.InitializeRunQueues(context.Background()); err != nil {
+		log.Fatal(err)
+	}
 
 	userSvc.InitializeSuperuser(context.Background())
 
@@ -67,13 +71,6 @@ func main() {
 	store.KVStore.ScheduleDailyCleanUp(kvStoreScheduler)
 	kvStoreScheduler.Start()
 
-	go handler.RunWorkers(
-		pipelineSvc,
-		pipelineH.RunCh,
-		pipelineH.OutputSSEClients,
-		pipelineH.StatusSSEClients,
-		pipelineH.CancelRunMap,
-	)
 	pipelineH.SchedulePipelines(pipelineScheduler)
 	pipelineScheduler.Start()
 
