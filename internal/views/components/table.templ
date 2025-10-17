@@ -1,8 +1,8 @@
 package components
 
-templ Table(headers []templ.Component, rows []templ.Component, attrs templ.Attributes) {
+templ Table(id string, headers []templ.Component, rows []templ.Component, attrs templ.Attributes) {
 	<div>
-		<table { attrs... } class="table">
+		<table id={ id } { attrs... } class="table">
 			<thead>
 				<tr>
 					for _, header := range headers {

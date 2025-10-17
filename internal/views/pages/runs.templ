@@ -35,6 +35,7 @@ templ RunsPagination(runs []store.Run, pipelineID, page, maxPages int64) {
 
 templ RunsTable(runs []store.Run) {
 	@components.Table(
+		"runs-table",
 		[]templ.Component{
 			components.PlainText("Pipeline"),
 			components.PlainText("RunID"),

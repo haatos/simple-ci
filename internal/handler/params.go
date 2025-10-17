@@ -11,7 +11,7 @@ type CredentialParams struct {
 
 type AgentParams struct {
 	AgentID           int64  `form:"agent_id"            param:"agent_id"`
-	AgentCredentialID int64 `form:"agent_credential_id"`
+	AgentCredentialID int64  `form:"agent_credential_id"`
 	Name              string `form:"name"`
 	Hostname          string `form:"hostname"`
 	Workspace         string `form:"workspace"`
@@ -59,4 +59,8 @@ type UserParams struct {
 	Username        string     `                form:"username"`
 	Password        string     `                form:"password"`
 	PasswordConfirm string     `                form:"password_confirm"`
+}
+
+type APIKeyParams struct {
+	ID int64 `param:"id"`
 }

@@ -70,7 +70,11 @@ templ AgentUpdateForm(agent *store.Agent, credentials []*store.Credential) {
 					<button class="btn">Cancel</button>
 				</form>
 				<form hx-delete={ fmt.Sprintf("/app/agents/%d", agent.AgentID) }>
-					<button id="confirm-delete-button" type="submit" class="btn btn-error">Delete</button>
+					<button
+						id="confirm-delete-button"
+						type="submit"
+						class="btn btn-error"
+					>Delete</button>
 				</form>
 			</div>
 		}

@@ -197,7 +197,7 @@ templ navBarMenu(user *store.User) {
 }
 
 templ sideMenu(user *store.User) {
-	<aside class="border border-base-content/20 rounded-box h-full min-h-64 max-h-72">
+	<aside class="border border-base-content/20 rounded-box h-full min-h-72 max-h-80">
 		@components.Menu(components.MenuProps{
 			Class: "menu-lg w-52 h-full",
 		}) {
@@ -237,6 +237,13 @@ templ sideMenu(user *store.User) {
 						Label: "Users",
 						Icon:  UsersIcon(),
 						Attrs: NavigationLinkAttrs("/app/users"),
+					},
+				)
+				@components.MenuItem(
+					components.MenuItemProps{
+						Label: "API Keys",
+						Icon:  APIKeysIcon(),
+						Attrs: NavigationLinkAttrs("/app/api-keys"),
 					},
 				)
 			}

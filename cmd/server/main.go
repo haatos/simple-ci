@@ -48,6 +48,11 @@ func main() {
 		credSvc,
 		pipelineScheduler,
 	)
+	apiKeySvc := service.NewAPIKeyService(
+		store.NewAPIKeySQLiteStore(rdb, rwdb),
+		service.NewUUIDGen(),
+	)
+
 	userSvc.InitializeSuperuser(context.Background())
 
 	authH := handler.NewAuthHandler(userSvc, cookieSvc)
@@ -55,6 +60,7 @@ func main() {
 	credH := handler.NewCredentialHandler(credSvc)
 	agentH := handler.NewAgentHandler(agentSvc)
 	pipelineH := handler.NewPipelineHandler(pipelineSvc)
+	apiKeyH := handler.NewAPIKeyHandler(apiKeySvc)
 
 	store.KVStore = store.NewKeyValueStore()
 	store.KVStore.ScheduleDailyCleanUp(kvStoreScheduler)
@@ -130,6 +136,10 @@ func main() {
 	app.GET("/pipelines/:pipeline_id/runs/:run_id/status", pipelineH.GetRunStatus)
 	app.GET("/pipelines/:pipeline_id/runs/:run_id/artifacts", pipelineH.GetPipelineRunArtifacts)
 	app.POST("/pipelines/:pipeline_id/runs/:run_id/cancel", pipelineH.PostCancelPipelineRun)
+
+	app.GET("/api-keys", apiKeyH.GetAPIKeysPage, handler.RoleMiddleware(types.Admin))
+	app.POST("/api-keys", apiKeyH.PostAPIKey, handler.RoleMiddleware(types.Admin))
+	app.DELETE("/api-keys/:id", apiKeyH.DeleteAPIKey, handler.RoleMiddleware(types.Admin))
 
 	internal.GracefulShutdown(e, settings.Settings.Port)
 }
