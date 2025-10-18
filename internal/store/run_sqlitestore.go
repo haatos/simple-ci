@@ -95,6 +95,35 @@ func (store *RunSQLiteStore) UpdateRunEndedOn(
 	return err
 }
 
+func (store *RunSQLiteStore) AppendRunOutput(ctx context.Context, id int64, out string) error {
+	tx, err := store.rwdb.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	r := &Run{RunID: id}
+	readQuery := `select * from runs where run_id = $1`
+	err = sqlscan.Get(ctx, tx, r, readQuery, r.RunID)
+	if err != nil {
+		return err
+	}
+
+	var existingOutput string
+	if r.Output != nil {
+		existingOutput = *r.Output
+	}
+	updateQuery := `update runs
+	set output = $1
+	where run_id = $2`
+	_, err = tx.ExecContext(ctx, updateQuery, existingOutput+out, r.RunID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 func (store *RunSQLiteStore) DeleteRun(ctx context.Context, id int64) error {
 	query := "delete from runs where run_id = $1"
 	_, err := store.rwdb.ExecContext(ctx, query, id)

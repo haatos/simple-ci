@@ -143,6 +143,11 @@ func (m *MockRunStore) UpdateRunEndedOn(
 	return args.Error(0)
 }
 
+func (m *MockRunStore) AppendRunOutput(ctx context.Context, runID int64, out string) error {
+	args := m.Called(ctx, runID, out)
+	return args.Error(0)
+}
+
 func (m *MockRunStore) DeleteRun(ctx context.Context, id int64) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)

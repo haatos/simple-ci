@@ -191,6 +191,12 @@ func (m *MockPipelineService) UpdateRunEndedOn(
 	args := m.Called(ctx, runID, status, output, artifacts, endedOn)
 	return args.Error(0)
 }
+
+func (m *MockPipelineService) AppendRunOutput(ctx context.Context, runID int64, out string) error {
+	args := m.Called(ctx, runID, out)
+	return args.Error(0)
+}
+
 func (m *MockPipelineService) DeleteRun(ctx context.Context, runID int64) error {
 	args := m.Called(ctx, runID)
 	return args.Error(0)
@@ -296,10 +302,6 @@ func (m *MockPipelineService) ShutdownAll() {
 
 func (m *MockPipelineService) ScheduleRun() {
 	m.Called()
-}
-
-func (m *MockPipelineService) Run(id int64) {
-	m.Called(id)
 }
 
 func TestPipelinesHandler_GetPipelinesPage(t *testing.T) {

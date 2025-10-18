@@ -83,6 +83,12 @@ func main() {
 	router.GET("/auth/set-password", authH.GetSetPasswordPage)
 	router.POST("/auth/set-password", authH.PostSetPassword)
 
+	// pipeline run webhook trigger
+	router.POST(
+		"/pipelines/:pipeline_id/webhook-trigger/:branch",
+		pipelineH.PostPipelineRunWebhookTrigger,
+	)
+
 	app := router.Group("/app", handler.IsAuthenticated)
 	app.GET("", handler.GetAppPage)
 
@@ -126,10 +132,6 @@ func main() {
 
 	app.GET("/pipelines/:pipeline_id/latest-runs", pipelineH.GetLatestPipelineRuns)
 	app.POST("/pipelines/:pipeline_id/runs", pipelineH.PostPipelineRun)
-	app.POST(
-		"/pipelines/:pipeline_id/runs/webhook-trigger/:branch",
-		pipelineH.PostPipelineRunWebhookTrigger,
-	)
 	app.GET("/pipelines/:pipeline_id/runs/:run_id", pipelineH.GetPipelineRunPage)
 	app.GET("/pipelines/:pipeline_id/runs", pipelineH.GetPipelineRunsPage)
 	app.GET("/pipelines/:pipeline_id/runs-list", pipelineH.GetPipelineRunsList)

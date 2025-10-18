@@ -36,6 +36,7 @@ type RunStore interface {
 	ReadRunByID(context.Context, int64) (*Run, error)
 	UpdateRunStartedOn(context.Context, int64, string, RunStatus, *time.Time) error
 	UpdateRunEndedOn(context.Context, int64, RunStatus, *string, *string, *time.Time) error
+	AppendRunOutput(context.Context, int64, string) error
 	DeleteRun(context.Context, int64) error
 	ListPipelineRuns(context.Context, int64) ([]Run, error)
 	ListLatestPipelineRuns(context.Context, int64, int64) ([]Run, error)

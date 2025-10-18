@@ -50,10 +50,11 @@ func (rq *RunQueue) Run(pipelineService PipelineServicer) {
 				RunStatusCh: make(chan store.Run),
 			}
 
-			go handleOutput(rq.OutputSSEClients, w)
-			go handleStatus(rq.StatusSSEClients, w)
 			ctx, cancel := context.WithCancel(context.Background())
 			rq.CancelRunMap.AddCancel(run.RunID, cancel)
+
+			go rq.handleOutput(ctx, w)
+			go rq.handleStatus(w)
 
 			if err := processRun(ctx, pipelineService, w); err != nil {
 				endedOn := time.Now().UTC()
@@ -104,16 +105,17 @@ func (rq *RunQueue) Shutdown() {
 	}
 }
 
-func handleOutput(outputClients *SSEClientMap[string], w *Worker) {
+func (rq *RunQueue) handleOutput(ctx context.Context, w *Worker) {
 	for out := range w.OutputCh {
 		w.Output += out
-		outputClients.SendToClients(out)
+		rq.pipelineService.AppendRunOutput(ctx, w.Run.RunID, out)
+		rq.OutputSSEClients.SendToClients(out)
 	}
 }
 
-func handleStatus(statusClients *SSEClientMap[store.Run], w *Worker) {
+func (rq *RunQueue) handleStatus(w *Worker) {
 	for r := range w.RunStatusCh {
-		statusClients.SendToClients(r)
+		rq.StatusSSEClients.SendToClients(r)
 	}
 }
 
@@ -222,7 +224,9 @@ func processRun(
 		return err
 	}
 
-	w.OutputCh <- "Executed pipeline steps successfully.\n"
+	w.OutputCh <- "\n=============================================\n"
+	w.OutputCh <- "PASS || Executed pipeline steps successfully.\n"
+	w.OutputCh <- "=============================================\n"
 
 	// update run status and output
 	rd.Run.Output = &w.Output

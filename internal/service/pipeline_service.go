@@ -84,6 +84,7 @@ type PipelineServicer interface {
 		artifacts *string,
 		endedOn *time.Time,
 	) error
+	AppendRunOutput(context.Context, int64, string) error
 	DeleteRun(ctx context.Context, runID int64) error
 	ListPipelineRuns(ctx context.Context, pipelineID int64) ([]store.Run, error)
 	ListLatestPipelineRuns(context.Context, int64, int64) ([]store.Run, error)
@@ -100,7 +101,6 @@ type PipelineServicer interface {
 	EnqueueRun(*store.Run) error
 	ShutdownRunQueue(int64)
 	ShutdownAll()
-	Run(int64)
 }
 
 type PipelineService struct {
@@ -307,6 +307,10 @@ func (s *PipelineService) UpdatePipelineScheduleJobID(
 	jobID *string,
 ) error {
 	return s.pipelineStore.UpdatePipelineScheduleJobID(ctx, pipelineID, jobID)
+}
+
+func (s *PipelineService) AppendRunOutput(ctx context.Context, runID int64, out string) error {
+	return s.runStore.AppendRunOutput(ctx, runID, out)
 }
 
 func (s *PipelineService) DeletePipeline(ctx context.Context, pipelineID int64) error {
@@ -662,60 +666,4 @@ func (s *PipelineService) ShutdownAll() {
 		})
 	}
 	wg.Wait()
-}
-
-func (s *PipelineService) Run(id int64) {
-	rq, ok := s.GetRunQueue(id)
-	if !ok {
-		log.Printf("run queue for pipeline %d does not exist", id)
-		return
-	}
-
-	select {
-	case run := <-rq.Queue:
-		w := &Worker{
-			OutputCh:    make(chan string),
-			Run:         run,
-			RunStatusCh: make(chan store.Run),
-		}
-
-		go handleOutput(rq.OutputSSEClients, w)
-		go handleStatus(rq.StatusSSEClients, w)
-		ctx, cancel := context.WithCancel(context.Background())
-		rq.CancelRunMap.AddCancel(run.RunID, cancel)
-
-		if err := processRun(ctx, s, w); err != nil {
-			endedOn := time.Now().UTC()
-			run.EndedOn = &endedOn
-			run.Output = &w.Output
-			if rcErr, ok := err.(RunCancelError); ok {
-				run.Status = store.StatusCancelled
-				w.OutputCh <- rcErr.Message
-			} else {
-				run.Status = store.StatusFailed
-			}
-			if sqlErr := s.UpdateRunEndedOn(
-				context.Background(),
-				run.RunID,
-				run.Status,
-				run.Output,
-				run.Artifacts,
-				run.EndedOn,
-			); sqlErr != nil {
-				log.Println("err updating run status to failed:", errors.Join(err, sqlErr))
-			}
-			log.Println("err processing pipeline:", err)
-			r, err := s.GetRunByID(context.Background(), run.RunID)
-			if err != nil {
-				log.Println("err getting run by id")
-			} else {
-				w.Run = r
-				w.RunStatusCh <- *r
-			}
-		}
-		rq.CancelRunMap.RemoveCancel(run.RunID)
-	case <-rq.Done:
-		close(rq.Queue)
-		return
-	}
 }
