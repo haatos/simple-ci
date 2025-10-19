@@ -6,5 +6,5 @@ stages:
   - stage: Build
     steps:
       - step: Run build
-        script: go build -o bin/simpleci cmd/server/main.go
+        script: go build -o bin/simpleci cmd/simpleci/main.go
     artifacts: bin

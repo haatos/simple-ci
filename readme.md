@@ -58,7 +58,7 @@ No Node.js, no Docker required. Just deploy as a single binary.
 2. Build the binary:
 
    ```
-   go build -o simpleci ./cmd/server/main.go
+   go build -o simpleci ./cmd/simpleci/main.go
    ```
 
 3. Run the controller:
@@ -119,7 +119,7 @@ stages:
   - stage: Build
     steps:
       - step: Run build
-        script: go build -o bin/simpleci cmd/server/main.go
+        script: go build -o bin/simpleci cmd/simpleci/main.go
     artifacts: bin
 ```
 
