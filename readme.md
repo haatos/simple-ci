@@ -3,10 +3,6 @@
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-blue.svg)](https://golang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## TODO
-
-- [ ] Pipeline runs by webhook call
-
 SimpleCI is a lightweight, self-hosted continuous integration (CI) application designed to replace complex tools like Jenkins with a streamlined, modern alternative. Built entirely in Go, it leverages [templ](https://github.com/a-h/templ) for server-side rendering and [HTMX](https://htmx.org/) for dynamic, interactive UI updates without heavy JavaScript frameworks. SimpleCI focuses on simplicity, security, and ease of use, allowing you to define pipelines that run on remote agents via SSH.
 
 ## Overview
