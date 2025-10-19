@@ -15,7 +15,7 @@ var Settings *AppSettings
 
 func NewSettings() *AppSettings {
 	settings := AppSettings{
-		SessionExpires: 30 * 24 * time.Hour,
+		SessionExpires: time.Duration(30 * 24 * time.Hour),
 		Domain:         getEnvOrDefault("SIMPLECI_DOMAIN", "localhost"),
 		Port:           getEnvOrDefault("SIMPLECI_PORT", ":8080"),
 		SQLiteDatabase: getEnvOrDefault("SIMPLECI_DB_PATH", "file:.///db.sqlite"),
@@ -41,6 +41,7 @@ type AppSettings struct {
 	Domain                string
 	Port                  string
 	SessionExpires        time.Duration
+	MaxQueuedRuns         int64
 }
 
 func (as *AppSettings) BaseURL() string {

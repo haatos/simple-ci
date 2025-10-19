@@ -65,14 +65,14 @@ templ AppMain() {
 				</a>
 			}
 			@components.Card(components.CardProps{
-				Title:     "Settings",
+				Title:     "Config",
 				TitleIcon: views.SettingsIcon(),
 				Content:   "Configure SimpleCI settings",
 				Class:     "border border-base-content/20 rounded-box",
 			}) {
 				<a
-					href="/app/settings"
-					hx-get="/app/settings"
+					href="/app/config"
+					hx-get="/app/config"
 					hx-swap="outerHTML"
 					hx-target="main"
 					hx-push-url="true"

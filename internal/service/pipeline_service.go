@@ -17,6 +17,7 @@ import (
 	"github.com/go-co-op/gocron/v2"
 	"github.com/goccy/go-yaml"
 	"github.com/google/uuid"
+	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/types"
 	"github.com/haatos/simple-ci/internal/util"
@@ -145,7 +146,7 @@ func (s *PipelineService) InitializeRunQueues(ctx context.Context) error {
 		ids[i] = p.PipelineID
 	}
 
-	s.AddRunQueues(ids, 3)
+	s.AddRunQueues(ids, internal.Config.QueueSize)
 	s.StartRunQueues()
 	return nil
 }
@@ -166,7 +167,7 @@ func (s *PipelineService) CreatePipeline(
 	if err != nil {
 		return nil, err
 	}
-	s.AddRunQueue(p.PipelineID, 3)
+	s.AddRunQueue(p.PipelineID, internal.Config.QueueSize)
 	if err := s.StartRunQueue(p.PipelineID); err != nil {
 		return p, err
 	}

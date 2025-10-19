@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/haatos/simple-ci/testutil"
@@ -235,6 +236,7 @@ func (m *MockCredentialService) DecryptAES(hash string) ([]byte, error) {
 func TestPipelineService_CreatePipeline(t *testing.T) {
 	t.Run("success - pipeline created", func(t *testing.T) {
 		// arrange
+		internal.Config = &internal.Configuration{SessionExpiresHours: 1, QueueSize: 3}
 		expectedPipeline := generatePipeline(0)
 		mockStore := new(MockPipelineStore)
 		mockStore.On(
@@ -828,7 +830,7 @@ func TestPipelineService_GetRunQueue(t *testing.T) {
 		// arrange
 		p := generatePipeline(0)
 		pipelineService := NewPipelineService(nil, nil, nil, nil, nil, nil)
-		pipelineService.AddRunQueue(p.PipelineID, 3)
+		pipelineService.AddRunQueue(p.PipelineID, internal.Config.QueueSize)
 
 		// act
 		rq, ok := pipelineService.GetRunQueue(p.PipelineID)

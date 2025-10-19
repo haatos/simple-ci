@@ -64,3 +64,8 @@ type UserParams struct {
 type APIKeyParams struct {
 	ID int64 `param:"id"`
 }
+
+type ConfigParams struct {
+	SessionExpiresHours int64 `form:"session_expires_hours"`
+	QueueSize           int64 `form:"queue_size"`
+}

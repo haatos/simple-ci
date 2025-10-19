@@ -227,9 +227,9 @@ templ sideMenu(user *store.User) {
 				})
 			@components.MenuItem(
 				components.MenuItemProps{
-					Label: "Settings",
+					Label: "Config",
 					Icon:  SettingsIcon(),
-					Attrs: NavigationLinkAttrs("/app/settings"),
+					Attrs: NavigationLinkAttrs("/app/config"),
 				})
 			if user.IsSuperuser() {
 				@components.MenuItem(

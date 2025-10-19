@@ -21,6 +21,7 @@ import (
 )
 
 func main() {
+	internal.InitializeConfiguration()
 	settings.ReadDotenv()
 	settings.Settings = settings.NewSettings()
 	hashKey, blockKey := security.NewKeys()
@@ -144,6 +145,9 @@ func main() {
 	app.GET("/api-keys", apiKeyH.GetAPIKeysPage, handler.RoleMiddleware(types.Admin))
 	app.POST("/api-keys", apiKeyH.PostAPIKey, handler.RoleMiddleware(types.Admin))
 	app.DELETE("/api-keys/:id", apiKeyH.DeleteAPIKey, handler.RoleMiddleware(types.Admin))
+
+	app.GET("/config", handler.GetConfigPage, handler.RoleMiddleware(types.Admin))
+	app.POST("/config", handler.PostConfig, handler.RoleMiddleware(types.Admin))
 
 	internal.GracefulShutdown(e, settings.Settings.Port)
 }
