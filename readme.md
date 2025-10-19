@@ -70,9 +70,14 @@ Use environment variables or a .env file for setup:
 - `SIMPLECI_HASH_KEY`: Encryption key. This is automatically generated, and saved into .env, if not found.
 - `SIMPLECI_DB_PATH`: Path to SQLite DB (default: `./db.sqlite`).
 - `SIMPLECI_PORT`: HTTP listen port (default: `8080`).
-- `SIMPLECI_GITHUB_WEBHOOK_SECRET`: Optional secret for GitHub webhook validation.
 
 For production, use a reverse proxy like Caddy or Nginx for HTTPS.
+
+#### Agent setup
+
+1. Generate an SSH key on your the **controller** (machine running the application). `ssh-keygen -t rsa`
+2. Append the public key `~/.ssh/id_rsa.pub` contents to the `~/.ssh/authorized_keys` file on the **agent** machine.
+3. Ensure the authorized keys file has the correct permissions on the **agent**: `chmod 600 ~/.ssh/authorized_keys`
 
 ## Usage
 
@@ -94,7 +99,7 @@ Credentials are referenced in agent configurations.
 4. Click 'Add'
 5. Click the 'Test connection' button of the _Agent_ to verify it is setup correctly.
 
-Agents run pipelines in isolated workspaces and clean up after builds.
+Agents run pipelines in isolated workspaces.
 
 ### Defining Pipelines
 
