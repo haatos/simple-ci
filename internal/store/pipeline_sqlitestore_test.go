@@ -81,6 +81,45 @@ func TestPipelineSQLiteStore_ReadPipelineByID(t *testing.T) {
 	})
 }
 
+func TestPipelineSQLiteStore_ReadPipelineRunData(t *testing.T) {
+	t.Run("success - pipeline run data is found", func(t *testing.T) {
+		// arrange
+		c := createCredential(t)
+		a := createAgent(t, c)
+		expectedPipeline := createPipeline(t, a)
+
+		// act
+		prd, err := pipelineStore.ReadPipelineRunData(
+			context.Background(),
+			expectedPipeline.PipelineID,
+		)
+
+		// assert
+		assert.NoError(t, err)
+		assert.NotNil(t, prd)
+		assert.Equal(t, expectedPipeline.PipelineID, prd.PipelineID)
+		assert.Equal(t, expectedPipeline.Repository, prd.Repository)
+		assert.Equal(t, expectedPipeline.ScriptPath, prd.ScriptPath)
+		assert.Equal(t, a.AgentID, prd.AgentID)
+		assert.Equal(t, a.Hostname, prd.Hostname)
+		assert.Equal(t, a.Workspace, prd.Workspace)
+		assert.Equal(t, c.CredentialID, prd.CredentialID)
+		assert.Equal(t, c.Username, prd.Username)
+		assert.Equal(t, c.SSHPrivateKeyHash, prd.SSHPrivateKeyHash)
+	})
+	t.Run("failure - pipeline run data is not found", func(t *testing.T) {
+		// arrange
+		var id int64 = 42351223
+
+		// act
+		prd, err := pipelineStore.ReadPipelineRunData(context.Background(), id)
+
+		// assert
+		assert.Error(t, err)
+		assert.Nil(t, prd)
+	})
+}
+
 func TestPipelineSQLiteStore_UpdatePipeline(t *testing.T) {
 	t.Run("success - pipeline updates", func(t *testing.T) {
 		// arrange

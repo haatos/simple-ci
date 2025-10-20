@@ -36,10 +36,7 @@ type PipelineServicer interface {
 		pipelineID int64,
 	) (*store.Pipeline, error)
 	GetPipelineAndAgents(context.Context, int64) (*store.Pipeline, []*store.Agent, error)
-	GetPipelineAgentAndCredential(
-		context.Context,
-		int64,
-	) (*store.Pipeline, *store.Agent, *store.Credential, error)
+	GetPipelineRunData(context.Context, int64) (*store.PipelineRunData, error)
 	ListPipelines(ctx context.Context) ([]*store.Pipeline, error)
 	ListPipelinesAndAgents(ctx context.Context) ([]*store.Pipeline, []*store.Agent, error)
 	ListScheduledPipelines(ctx context.Context) ([]*store.Pipeline, error)
@@ -66,7 +63,6 @@ type PipelineServicer interface {
 		ctx context.Context,
 		runID int64,
 		status store.RunStatus,
-		output *string,
 		artifacts *string,
 		endedOn *time.Time,
 	) error
@@ -181,28 +177,21 @@ func (s *PipelineService) GetPipelineAndAgents(
 	return p, agents, nil
 }
 
-func (s *PipelineService) GetPipelineAgentAndCredential(
+func (s *PipelineService) GetPipelineRunData(
 	ctx context.Context,
 	id int64,
-) (*store.Pipeline, *store.Agent, *store.Credential, error) {
-	p, err := s.pipelineStore.ReadPipelineByID(ctx, id)
+) (*store.PipelineRunData, error) {
+	prd, err := s.pipelineStore.ReadPipelineRunData(ctx, id)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	a, err := s.agentService.GetAgentByID(ctx, p.PipelineAgentID)
+
+	privateKey, err := s.credentialService.DecryptAES(prd.SSHPrivateKeyHash)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	c, err := s.credentialService.GetCredentialByID(ctx, a.AgentCredentialID)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	privateKey, err := s.credentialService.DecryptAES(c.SSHPrivateKeyHash)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	c.SSHPrivateKey = privateKey
-	return p, a, c, nil
+	prd.SSHPrivateKey = privateKey
+	return prd, nil
 }
 
 func (s *PipelineService) ListPipelines(
@@ -493,11 +482,10 @@ func (s *PipelineService) UpdateRunEndedOn(
 	ctx context.Context,
 	runID int64,
 	status store.RunStatus,
-	output *string,
 	artifacts *string,
 	endedOn *time.Time,
 ) error {
-	return s.runStore.UpdateRunEndedOn(ctx, runID, status, output, artifacts, endedOn)
+	return s.runStore.UpdateRunEndedOn(ctx, runID, status, artifacts, endedOn)
 }
 
 func (s *PipelineService) DeleteRun(ctx context.Context, runID int64) error {

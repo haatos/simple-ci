@@ -61,18 +61,15 @@ func (m *MockPipelineService) GetPipelineAndAgents(
 	return p, agents, nil
 }
 
-func (m *MockPipelineService) GetPipelineAgentAndCredential(
+func (m *MockPipelineService) GetPipelineRunData(
 	ctx context.Context,
 	id int64,
-) (*store.Pipeline, *store.Agent, *store.Credential, error) {
+) (*store.PipelineRunData, error) {
 	args := m.Called(ctx, id)
-	if args.Get(0) == nil || args.Get(1) == nil || args.Get(2) == nil {
-		return nil, nil, nil, args.Error(3)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
 	}
-	p := args.Get(0).(*store.Pipeline)
-	a := args.Get(1).(*store.Agent)
-	c := args.Get(2).(*store.Credential)
-	return p, a, c, nil
+	return args.Get(0).(*store.PipelineRunData), nil
 }
 
 func (m *MockPipelineService) ListPipelines(
@@ -184,11 +181,10 @@ func (m *MockPipelineService) UpdateRunEndedOn(
 	ctx context.Context,
 	runID int64,
 	status store.RunStatus,
-	output *string,
 	artifacts *string,
 	endedOn *time.Time,
 ) error {
-	args := m.Called(ctx, runID, status, output, artifacts, endedOn)
+	args := m.Called(ctx, runID, status, artifacts, endedOn)
 	return args.Error(0)
 }
 

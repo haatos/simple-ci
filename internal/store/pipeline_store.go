@@ -21,6 +21,19 @@ type Pipeline struct {
 	ScheduleJobID *string
 }
 
+type PipelineRunData struct {
+	PipelineID        int64
+	AgentID           int64
+	CredentialID      int64
+	Repository        string
+	ScriptPath        string
+	Hostname          string
+	Workspace         string
+	Username          string
+	SSHPrivateKeyHash string
+	SSHPrivateKey     []byte
+}
+
 type PipelineStore interface {
 	CreatePipeline(
 		context.Context,
@@ -31,6 +44,7 @@ type PipelineStore interface {
 		string,
 	) (*Pipeline, error)
 	ReadPipelineByID(context.Context, int64) (*Pipeline, error)
+	ReadPipelineRunData(context.Context, int64) (*PipelineRunData, error)
 	UpdatePipeline(context.Context, int64, int64, string, string, string, string) error
 	UpdatePipelineSchedule(context.Context, int64, *string, *string, *string) error
 	UpdatePipelineScheduleJobID(context.Context, int64, *string) error

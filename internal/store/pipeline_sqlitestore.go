@@ -61,6 +61,34 @@ func (store *PipelineSQLiteStore) ReadPipelineByID(
 	return p, nil
 }
 
+func (store *PipelineSQLiteStore) ReadPipelineRunData(
+	ctx context.Context,
+	id int64,
+) (*PipelineRunData, error) {
+	prd := new(PipelineRunData)
+	query := `select
+		p.pipeline_id,
+		p.repository,
+		p.script_path,
+		a.agent_id,
+		a.hostname,
+		a.workspace,
+		c.credential_id,
+		c.username,
+		c.ssh_private_key_hash
+	from pipelines p
+	join agents a
+	on p.pipeline_agent_id = a.agent_id
+	join credentials c
+	on a.agent_credential_id = c.credential_id
+	where p.pipeline_id = $1`
+	err := sqlscan.Get(ctx, store.rdb, prd, query, id)
+	if err != nil {
+		return nil, err
+	}
+	return prd, nil
+}
+
 func (store *PipelineSQLiteStore) UpdatePipeline(
 	ctx context.Context,
 	id, agentID int64,

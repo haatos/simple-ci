@@ -75,19 +75,17 @@ func (store *RunSQLiteStore) UpdateRunEndedOn(
 	ctx context.Context,
 	id int64,
 	status RunStatus,
-	output, artifacts *string,
+	artifacts *string,
 	endedOn *time.Time,
 ) error {
 	query := `update runs
 	set status = $1,
-		output = $2,
-		artifacts = $3,
-		ended_on = $4
-	where run_id = $5`
+		artifacts = $2,
+		ended_on = $3
+	where run_id = $4`
 	_, err := store.rwdb.ExecContext(
 		ctx, query,
 		status,
-		output,
 		artifacts,
 		endedOn.Format(internal.DBTimestampLayout),
 		id,

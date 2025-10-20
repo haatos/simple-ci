@@ -15,6 +15,7 @@ import (
 	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/types"
+	"github.com/haatos/simple-ci/internal/util"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -85,7 +86,6 @@ func (rq *RunQueue) Run() {
 					context.Background(),
 					run.RunID,
 					run.Status,
-					run.Output,
 					run.Artifacts,
 					run.EndedOn,
 				); sqlErr != nil {
@@ -146,33 +146,24 @@ func (rq *RunQueue) processRun(
 	ctx context.Context,
 	w *worker,
 ) error {
-	p, a, c, err := rq.pipelineService.GetPipelineAgentAndCredential(
-		context.Background(),
-		w.run.RunPipelineID,
-	)
+	prd, err := rq.pipelineService.GetPipelineRunData(ctx, w.run.RunPipelineID)
 	if err != nil {
 		w.outputCh <- fmt.Sprintf("err getting pipeline/agent/credential: %+v\n", err)
 		return err
 	}
-	rd := &runData{
-		credential: c,
-		agent:      a,
-		pipeline:   p,
-		run:        w.run,
-		workdir:    time.Now().UTC().Format(internal.RunDirLayout),
-	}
+	workdir := time.Now().UTC().Format(internal.RunDirLayout)
 
 	// update run status to running
-	rd.run.Status = store.StatusRunning
+	w.run.Status = store.StatusRunning
 	startedOn := time.Now().UTC()
-	rd.run.StartedOn = &startedOn
+	w.run.StartedOn = &startedOn
 
 	if err := rq.pipelineService.UpdateRunStartedOn(
 		context.Background(),
-		rd.run.RunID,
-		rd.workdir,
-		rd.run.Status,
-		rd.run.StartedOn,
+		w.run.RunID,
+		workdir,
+		w.run.Status,
+		w.run.StartedOn,
 	); err != nil {
 		w.outputCh <- "err updating run started on"
 		return err
@@ -186,21 +177,21 @@ func (rq *RunQueue) processRun(
 	w.run = r
 	w.runStatusCh <- *r
 
-	signer, err := ssh.ParsePrivateKey(c.SSHPrivateKey)
+	signer, err := ssh.ParsePrivateKey(prd.SSHPrivateKey)
 	if err != nil {
 		w.outputCh <- "err parsing ssh private key"
 		return err
 	}
 	auth := ssh.PublicKeys(signer)
 	cc := &ssh.ClientConfig{
-		User:            rd.credential.Username,
+		User:            prd.Username,
 		Auth:            []ssh.AuthMethod{auth},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         10 * time.Second,
 	}
 
 	// connect to agent through SSH
-	hostname := rd.agent.Hostname
+	hostname := prd.Hostname
 	split := strings.Split(hostname, ":")
 	if len(split) == 1 {
 		hostname += ":22"
@@ -214,20 +205,20 @@ func (rq *RunQueue) processRun(
 	w.outputCh <- fmt.Sprintf("SSH connected to %s\n", hostname)
 
 	// new session to clone repository
-	if err := cloneRepositoryOnAgent(ctx, client, rd); err != nil {
+	if err := cloneRepositoryOnAgent(ctx, client, prd.Repository, prd.Workspace, workdir, r.Branch); err != nil {
 		w.outputCh <- "err cloning repository on agent"
 		return err
 	}
-	w.outputCh <- fmt.Sprintf("Cloned repository %s\n", rd.pipeline.Repository)
+	w.outputCh <- fmt.Sprintf("Cloned repository %s\n", prd.Repository)
 
 	// base command: cd <workdir> &&
 	// new session to read pipeline script
 	pipelineYaml, err := readPipelineScript(
 		client,
-		rd.agent.Workspace,
-		rd.workdir,
-		rd.pipeline.Repository,
-		rd.pipeline.ScriptPath,
+		prd.Workspace,
+		workdir,
+		prd.Repository,
+		prd.ScriptPath,
 	)
 	if err != nil {
 		w.outputCh <- "err reading pipeline script"
@@ -241,7 +232,7 @@ func (rq *RunQueue) processRun(
 
 	w.outputCh <- "Parsed pipeline script. Starting pipeline execution...\n"
 
-	if err := executePipelineScript(ctx, client, w, rd, ps); err != nil {
+	if err := executePipelineScript(ctx, client, w, prd.Repository, prd.Workspace, workdir, ps); err != nil {
 		w.outputCh <- fmt.Sprintf("err executing pipeline script: %+v\n", err)
 		return err
 	}
@@ -254,17 +245,14 @@ PASS || Executed pipeline steps successfully.
 	w.outputCh <- passMessage
 
 	// update run status and output
-	rd.run.Output = &w.output
-	rd.run.Status = store.StatusPassed
-	endedOn := time.Now().UTC()
-	rd.run.EndedOn = &endedOn
+	w.run.Status = store.StatusPassed
+	w.run.EndedOn = util.AsPtr(time.Now().UTC())
 	if err := rq.pipelineService.UpdateRunEndedOn(
 		context.Background(),
-		rd.run.RunID,
-		rd.run.Status,
-		rd.run.Output,
-		rd.run.Artifacts,
-		rd.run.EndedOn,
+		w.run.RunID,
+		w.run.Status,
+		w.run.Artifacts,
+		w.run.EndedOn,
 	); err != nil {
 		w.outputCh <- "err updating run ended on"
 		return err
@@ -301,11 +289,15 @@ func readPipelineScript(
 	return output, nil
 }
 
-func cloneRepositoryOnAgent(ctx context.Context, client *ssh.Client, runData *runData) error {
+func cloneRepositoryOnAgent(
+	ctx context.Context,
+	client *ssh.Client,
+	repository, workspace, workdir, branch string,
+) error {
 	if _, _, err := runCommand(
 		ctx,
 		client,
-		fmt.Sprintf("mkdir -p %s/%s", runData.agent.Workspace, runData.workdir),
+		fmt.Sprintf("mkdir -p %s/%s", workspace, workdir),
 		10*time.Second,
 	); err != nil {
 		return err
@@ -313,9 +305,9 @@ func cloneRepositoryOnAgent(ctx context.Context, client *ssh.Client, runData *ru
 	if _, _, err := runCommandInWorkdir(
 		ctx,
 		client,
-		runData.agent.Workspace,
-		runData.workdir,
-		fmt.Sprintf("git clone -b %s %s", runData.run.Branch, runData.pipeline.Repository),
+		workspace,
+		workdir,
+		fmt.Sprintf("git clone -b %s %s", branch, repository),
 		30*time.Second,
 	); err != nil {
 		return err
@@ -327,22 +319,22 @@ func executePipelineScript(
 	ctx context.Context,
 	client *ssh.Client,
 	w *worker,
-	rd *runData,
+	repository, workspace, workdir string,
 	ps *types.PipelineScript,
 ) error {
-	repoDir := rd.pipeline.Repository[strings.LastIndex(rd.pipeline.Repository, "/")+1:]
+	repoDir := repository[strings.LastIndex(repository, "/")+1:]
 	repoDir = strings.TrimSuffix(repoDir, ".git")
 	for _, stage := range ps.Stages {
 		w.outputCh <- fmt.Sprintf("Executing pipeline stage '%s'\n", stage.Stage)
 		for _, step := range stage.Steps {
-			w.outputCh <- fmt.Sprintf(" | Executing pipeline step '%s'\n", step.Step)
+			w.outputCh <- fmt.Sprintf("  |  Executing pipeline step '%s'\n", step.Step)
 			if err := executePipelineStep(
 				ctx,
 				client,
 				w,
 				time.Duration(step.TimeoutSeconds)*time.Second,
-				rd.agent.Workspace,
-				rd.workdir,
+				workspace,
+				workdir,
 				repoDir,
 				step.Script,
 			); err != nil {

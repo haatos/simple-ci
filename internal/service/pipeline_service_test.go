@@ -46,6 +46,17 @@ func (m *MockPipelineStore) ReadPipelineByID(
 	return args.Get(0).(*store.Pipeline), args.Error(1)
 }
 
+func (m *MockPipelineStore) ReadPipelineRunData(
+	ctx context.Context,
+	id int64,
+) (*store.PipelineRunData, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.PipelineRunData), nil
+}
+
 func (m *MockPipelineStore) UpdatePipeline(
 	ctx context.Context,
 	id int64,
@@ -136,11 +147,10 @@ func (m *MockRunStore) UpdateRunEndedOn(
 	ctx context.Context,
 	id int64,
 	status store.RunStatus,
-	output *string,
 	artifacts *string,
 	endedOn *time.Time,
 ) error {
-	args := m.Called(ctx, id, status, output, artifacts, endedOn)
+	args := m.Called(ctx, id, status, artifacts, endedOn)
 	return args.Error(0)
 }
 
@@ -326,52 +336,41 @@ func TestPipelineService_GetPipelineAndAgents(t *testing.T) {
 	})
 }
 
-func TestPipelineService_GetPipelineAgentAndCredential(t *testing.T) {
-	t.Run("success - pipeline, agent, credential is found", func(t *testing.T) {
+func TestPipelineService_GetPipelineRunData(t *testing.T) {
+	t.Run("success - pipeline run data found", func(t *testing.T) {
 		// arrange
-		_, _, expectedCredential := generateCredential()
-		expectedAgent := generateAgent(expectedCredential.CredentialID)
-		expectedPipeline := generatePipeline(expectedAgent.AgentID)
+		_, _, c := generateCredential()
+		a := generateAgent(c.CredentialID)
+		p := generatePipeline(a.AgentID)
+		expectedPipelineRunData := &store.PipelineRunData{
+			PipelineID:        p.PipelineID,
+			Repository:        p.Repository,
+			ScriptPath:        p.ScriptPath,
+			AgentID:           a.AgentID,
+			Hostname:          a.Hostname,
+			Workspace:         a.Workspace,
+			CredentialID:      c.CredentialID,
+			Username:          c.Username,
+			SSHPrivateKeyHash: c.SSHPrivateKeyHash,
+		}
 		mockStore := new(MockPipelineStore)
-		mockAgentService := new(testutil.MockAgentService)
 		mockStore.On(
-			"ReadPipelineByID",
-			context.Background(),
-			expectedPipeline.PipelineID,
-		).Return(expectedPipeline, nil)
-		mockAgentService.On(
-			"GetAgentByID",
-			context.Background(),
-			expectedAgent.AgentID,
-		).Return(expectedAgent, nil)
-		mockCredentialService := new(MockCredentialService)
-		mockCredentialService.On(
-			"GetCredentialByID",
-			context.Background(),
-			expectedCredential.CredentialID,
-		).Return(expectedCredential, nil)
-		mockCredentialService.On(
+			"ReadPipelineRunData",
+			context.Background(), p.PipelineID,
+		).Return(expectedPipelineRunData, nil)
+		mockService := new(MockCredentialService)
+		mockService.On(
 			"DecryptAES",
-			expectedCredential.SSHPrivateKeyHash,
-		).Return([]byte(""), nil)
-		pipelineService := NewPipelineService(
-			mockStore,
-			nil,
-			mockCredentialService,
-			mockAgentService,
-			nil, nil)
+			c.SSHPrivateKeyHash,
+		).Return([]byte("test"), nil)
+		pipelineService := NewPipelineService(mockStore, nil, mockService, nil, nil, nil)
 
 		// act
-		p, a, c, err := pipelineService.GetPipelineAgentAndCredential(
-			context.Background(),
-			expectedPipeline.PipelineID,
-		)
+		prd, err := pipelineService.GetPipelineRunData(context.Background(), p.PipelineID)
 
 		// assert
 		assert.NoError(t, err)
-		assert.NotNil(t, p)
-		assert.NotNil(t, a)
-		assert.NotNil(t, c)
+		assert.NotNil(t, prd)
 	})
 }
 
@@ -624,14 +623,13 @@ func TestPipelineService_UpdateRunEndedOn(t *testing.T) {
 		// arrange
 		var runID int64 = 1
 		status := store.StatusPassed
-		output := "output"
 		artifacts := "artifacts"
 		endedOn := time.Now().UTC()
 		mockStore := new(MockRunStore)
 		mockStore.On(
 			"UpdateRunEndedOn",
 			context.Background(),
-			runID, status, &output, &artifacts, &endedOn,
+			runID, status, &artifacts, &endedOn,
 		).Return(nil)
 		pipelineService := NewPipelineService(nil, mockStore, nil, nil, nil, nil)
 
@@ -640,7 +638,6 @@ func TestPipelineService_UpdateRunEndedOn(t *testing.T) {
 			context.Background(),
 			runID,
 			status,
-			&output,
 			&artifacts,
 			&endedOn,
 		)

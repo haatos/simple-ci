@@ -130,14 +130,12 @@ func TestRunSQLiteStore_UpdateRunEndedOn(t *testing.T) {
 		assert.NoError(t, err)
 
 		// act
-		output := "test output"
 		artifacts := "artifacts.zip"
 		now := time.Now().UTC()
 		updateErr := runStore.UpdateRunEndedOn(
 			context.Background(),
 			expectedRun.RunID,
 			StatusPassed,
-			&output,
 			&artifacts,
 			&now,
 		)
@@ -153,7 +151,6 @@ func TestRunSQLiteStore_UpdateRunEndedOn(t *testing.T) {
 			now.Format(internal.DBTimestampLayout),
 			r.EndedOn.Format(internal.DBTimestampLayout),
 		)
-		assert.Equal(t, output, *r.Output)
 		assert.Equal(t, artifacts, *r.Artifacts)
 	})
 }
