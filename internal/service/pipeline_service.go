@@ -25,21 +25,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type Worker struct {
-	Output      string
-	OutputCh    chan string
-	Run         *store.Run
-	RunStatusCh chan store.Run
-}
-
-type RunData struct {
-	Credential *store.Credential
-	Agent      *store.Agent
-	Pipeline   *store.Pipeline
-	Run        *store.Run
-	Workdir    string
-}
-
 type PipelineServicer interface {
 	CreatePipeline(
 		ctx context.Context,

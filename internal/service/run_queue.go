@@ -18,6 +18,21 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+type worker struct {
+	output      string
+	outputCh    chan string
+	run         *store.Run
+	runStatusCh chan store.Run
+}
+
+type runData struct {
+	credential *store.Credential
+	agent      *store.Agent
+	pipeline   *store.Pipeline
+	run        *store.Run
+	workdir    string
+}
+
 func NewRunQueue(pipelineService PipelineServicer, maxRuns int64) *RunQueue {
 	return &RunQueue{
 		Queue:            make(chan *store.Run, maxRuns),
@@ -45,10 +60,10 @@ func (rq *RunQueue) Run() {
 	for {
 		select {
 		case run := <-rq.Queue:
-			w := &Worker{
-				OutputCh:    make(chan string),
-				Run:         run,
-				RunStatusCh: make(chan store.Run),
+			w := &worker{
+				outputCh:    make(chan string),
+				run:         run,
+				runStatusCh: make(chan store.Run),
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -60,10 +75,9 @@ func (rq *RunQueue) Run() {
 			if err := rq.processRun(ctx, w); err != nil {
 				endedOn := time.Now().UTC()
 				run.EndedOn = &endedOn
-				run.Output = &w.Output
-				if rcErr, ok := err.(RunCancelError); ok {
+				run.Output = &w.output
+				if _, ok := err.(RunCancelError); ok {
 					run.Status = store.StatusCancelled
-					w.OutputCh <- rcErr.Message
 				} else {
 					run.Status = store.StatusFailed
 				}
@@ -82,19 +96,20 @@ func (rq *RunQueue) Run() {
 				if err != nil {
 					log.Println("err getting run by id")
 				} else {
-					w.Run = r
-					w.RunStatusCh <- *r
+					w.run = r
+					w.runStatusCh <- *r
 				}
+
+				failMessage := `
+=============================================
+FAIL || Pipeline execution failed.
+=============================================
+`
+				w.outputCh <- failMessage
 			}
 
-			failMessage := `
-			=============================================
-			FAIL || Pipeline execution failed.
-			=============================================
-			`
-			w.OutputCh <- failMessage
-			close(w.OutputCh)
-			close(w.RunStatusCh)
+			close(w.outputCh)
+			close(w.runStatusCh)
 			rq.CancelRunMap.RemoveCancel(run.RunID)
 		case <-rq.Done:
 			close(rq.Queue)
@@ -113,157 +128,156 @@ func (rq *RunQueue) Shutdown() {
 	}
 }
 
-func (rq *RunQueue) handleOutput(ctx context.Context, w *Worker) {
-	for out := range w.OutputCh {
-		w.Output += out
-		rq.pipelineService.AppendRunOutput(ctx, w.Run.RunID, out)
+func (rq *RunQueue) handleOutput(ctx context.Context, w *worker) {
+	for out := range w.outputCh {
+		w.output += out
+		rq.pipelineService.AppendRunOutput(ctx, w.run.RunID, out)
 		rq.OutputSSEClients.SendToClients(out)
 	}
 }
 
-func (rq *RunQueue) handleStatus(w *Worker) {
-	for r := range w.RunStatusCh {
+func (rq *RunQueue) handleStatus(w *worker) {
+	for r := range w.runStatusCh {
 		rq.StatusSSEClients.SendToClients(r)
 	}
 }
 
 func (rq *RunQueue) processRun(
 	ctx context.Context,
-	w *Worker,
+	w *worker,
 ) error {
 	p, a, c, err := rq.pipelineService.GetPipelineAgentAndCredential(
 		context.Background(),
-		w.Run.RunPipelineID,
+		w.run.RunPipelineID,
 	)
 	if err != nil {
-		w.OutputCh <- fmt.Sprintf("err getting pipeline/agent/credential: %+v\n", err)
+		w.outputCh <- fmt.Sprintf("err getting pipeline/agent/credential: %+v\n", err)
 		return err
 	}
-	rd := &RunData{
-		Credential: c,
-		Agent:      a,
-		Pipeline:   p,
-		Run:        w.Run,
-		Workdir:    time.Now().UTC().Format(internal.RunDirLayout),
+	rd := &runData{
+		credential: c,
+		agent:      a,
+		pipeline:   p,
+		run:        w.run,
+		workdir:    time.Now().UTC().Format(internal.RunDirLayout),
 	}
 
 	// update run status to running
-	rd.Run.Status = store.StatusRunning
+	rd.run.Status = store.StatusRunning
 	startedOn := time.Now().UTC()
-	rd.Run.StartedOn = &startedOn
+	rd.run.StartedOn = &startedOn
 
 	if err := rq.pipelineService.UpdateRunStartedOn(
 		context.Background(),
-		rd.Run.RunID,
-		rd.Workdir,
-		rd.Run.Status,
-		rd.Run.StartedOn,
+		rd.run.RunID,
+		rd.workdir,
+		rd.run.Status,
+		rd.run.StartedOn,
 	); err != nil {
-		w.OutputCh <- "err updating run started on"
+		w.outputCh <- "err updating run started on"
 		return err
 	}
 
-	r, err := rq.pipelineService.GetRunByID(context.Background(), w.Run.RunID)
+	r, err := rq.pipelineService.GetRunByID(context.Background(), w.run.RunID)
 	if err != nil {
-		w.OutputCh <- "err getting run by ID"
+		w.outputCh <- "err getting run by ID"
 		return err
 	}
-	w.Run = r
-	w.RunStatusCh <- *r
+	w.run = r
+	w.runStatusCh <- *r
 
 	signer, err := ssh.ParsePrivateKey(c.SSHPrivateKey)
 	if err != nil {
-		w.OutputCh <- "err parsing ssh private key"
+		w.outputCh <- "err parsing ssh private key"
 		return err
 	}
 	auth := ssh.PublicKeys(signer)
 	cc := &ssh.ClientConfig{
-		User:            rd.Credential.Username,
+		User:            rd.credential.Username,
 		Auth:            []ssh.AuthMethod{auth},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         10 * time.Second,
 	}
 
 	// connect to agent through SSH
-	hostname := rd.Agent.Hostname
+	hostname := rd.agent.Hostname
 	split := strings.Split(hostname, ":")
 	if len(split) == 1 {
 		hostname += ":22"
 	}
 	client, err := ssh.Dial("tcp", hostname, cc)
 	if err != nil {
-		w.OutputCh <- "err dialing ssh"
+		w.outputCh <- "err dialing ssh"
 		return err
 	}
 	defer client.Close()
-	w.OutputCh <- fmt.Sprintf("SSH connected to %s\n", hostname)
+	w.outputCh <- fmt.Sprintf("SSH connected to %s\n", hostname)
 
 	// new session to clone repository
 	if err := cloneRepositoryOnAgent(ctx, client, rd); err != nil {
-		w.OutputCh <- "err cloning repository on agent"
+		w.outputCh <- "err cloning repository on agent"
 		return err
 	}
-	w.OutputCh <- fmt.Sprintf("Cloned repository %s\n", rd.Pipeline.Repository)
+	w.outputCh <- fmt.Sprintf("Cloned repository %s\n", rd.pipeline.Repository)
 
 	// base command: cd <workdir> &&
 	// new session to read pipeline script
 	pipelineYaml, err := readPipelineScript(
 		client,
-		rd.Agent.Workspace,
-		rd.Workdir,
-		rd.Pipeline.Repository,
-		rd.Pipeline.ScriptPath,
+		rd.agent.Workspace,
+		rd.workdir,
+		rd.pipeline.Repository,
+		rd.pipeline.ScriptPath,
 	)
 	if err != nil {
-		w.OutputCh <- "err reading pipeline script"
+		w.outputCh <- "err reading pipeline script"
 		return err
 	}
 	ps := new(types.PipelineScript)
 	if err := yaml.Unmarshal(pipelineYaml, ps); err != nil {
-		w.OutputCh <- "err unmarshaling pipeline yaml"
+		w.outputCh <- "err unmarshaling pipeline yaml"
 		return err
 	}
 
-	w.OutputCh <- "Parsed pipeline script. Starting pipeline execution...\n"
+	w.outputCh <- "Parsed pipeline script. Starting pipeline execution...\n"
 
 	if err := executePipelineScript(ctx, client, w, rd, ps); err != nil {
-		w.OutputCh <- fmt.Sprintf("err executing pipeline script: %+v\n", err)
+		w.outputCh <- fmt.Sprintf("err executing pipeline script: %+v\n", err)
 		return err
 	}
 
 	passMessage := `
-	=============================================
-	PASS || Executed pipeline steps successfully.
-	=============================================
-	`
-	w.OutputCh <- passMessage
+=============================================
+PASS || Executed pipeline steps successfully.
+=============================================
+`
+	w.outputCh <- passMessage
 
 	// update run status and output
-	rd.Run.Output = &w.Output
-	rd.Run.Status = store.StatusPassed
+	rd.run.Output = &w.output
+	rd.run.Status = store.StatusPassed
 	endedOn := time.Now().UTC()
-	rd.Run.EndedOn = &endedOn
+	rd.run.EndedOn = &endedOn
 	if err := rq.pipelineService.UpdateRunEndedOn(
 		context.Background(),
-		rd.Run.RunID,
-		rd.Run.Status,
-		rd.Run.Output,
-		rd.Run.Artifacts,
-		rd.Run.EndedOn,
+		rd.run.RunID,
+		rd.run.Status,
+		rd.run.Output,
+		rd.run.Artifacts,
+		rd.run.EndedOn,
 	); err != nil {
-		w.OutputCh <- "err updating run ended on"
+		w.outputCh <- "err updating run ended on"
 		return err
 	}
 
-	r, err = rq.pipelineService.GetRunByID(context.Background(), w.Run.RunID)
+	r, err = rq.pipelineService.GetRunByID(context.Background(), w.run.RunID)
 	if err != nil {
-		w.OutputCh <- "err getting run by id"
+		w.outputCh <- "err getting run by id"
 		return err
 	}
 
-	w.Run = r
-	log.Println("sending final status")
-	w.RunStatusCh <- *r
+	w.run = r
+	w.runStatusCh <- *r
 
 	return nil
 }
@@ -287,11 +301,11 @@ func readPipelineScript(
 	return output, nil
 }
 
-func cloneRepositoryOnAgent(ctx context.Context, client *ssh.Client, runData *RunData) error {
+func cloneRepositoryOnAgent(ctx context.Context, client *ssh.Client, runData *runData) error {
 	if _, _, err := runCommand(
 		ctx,
 		client,
-		fmt.Sprintf("mkdir -p %s/%s", runData.Agent.Workspace, runData.Workdir),
+		fmt.Sprintf("mkdir -p %s/%s", runData.agent.Workspace, runData.workdir),
 		10*time.Second,
 	); err != nil {
 		return err
@@ -299,9 +313,9 @@ func cloneRepositoryOnAgent(ctx context.Context, client *ssh.Client, runData *Ru
 	if _, _, err := runCommandInWorkdir(
 		ctx,
 		client,
-		runData.Agent.Workspace,
-		runData.Workdir,
-		fmt.Sprintf("git clone -b %s %s", runData.Run.Branch, runData.Pipeline.Repository),
+		runData.agent.Workspace,
+		runData.workdir,
+		fmt.Sprintf("git clone -b %s %s", runData.run.Branch, runData.pipeline.Repository),
 		30*time.Second,
 	); err != nil {
 		return err
@@ -312,21 +326,23 @@ func cloneRepositoryOnAgent(ctx context.Context, client *ssh.Client, runData *Ru
 func executePipelineScript(
 	ctx context.Context,
 	client *ssh.Client,
-	w *Worker,
-	rd *RunData,
+	w *worker,
+	rd *runData,
 	ps *types.PipelineScript,
 ) error {
-	repoDir := rd.Pipeline.Repository[strings.LastIndex(rd.Pipeline.Repository, "/")+1:]
+	repoDir := rd.pipeline.Repository[strings.LastIndex(rd.pipeline.Repository, "/")+1:]
 	repoDir = strings.TrimSuffix(repoDir, ".git")
 	for _, stage := range ps.Stages {
+		w.outputCh <- fmt.Sprintf("Executing pipeline stage '%s'\n", stage.Stage)
 		for _, step := range stage.Steps {
+			w.outputCh <- fmt.Sprintf(" | Executing pipeline step '%s'\n", step.Step)
 			if err := executePipelineStep(
 				ctx,
 				client,
 				w,
 				time.Duration(step.TimeoutSeconds)*time.Second,
-				rd.Agent.Workspace,
-				rd.Workdir,
+				rd.agent.Workspace,
+				rd.workdir,
 				repoDir,
 				step.Script,
 			); err != nil {
@@ -340,7 +356,7 @@ func executePipelineScript(
 func executePipelineStep(
 	ctx context.Context,
 	client *ssh.Client,
-	w *Worker,
+	w *worker,
 	timeout time.Duration,
 	workspace, workdir, repoDir, script string,
 ) error {
@@ -375,16 +391,16 @@ func executePipelineStep(
 			scanner := bufio.NewScanner(stdout)
 			for scanner.Scan() {
 				text := scanner.Text()
-				w.OutputCh <- text + "\n"
-				w.Output += text + "\n"
+				w.outputCh <- text + "\n"
+				w.output += text + "\n"
 			}
 		})
 		wg.Go(func() {
 			scanner := bufio.NewScanner(stderr)
 			for scanner.Scan() {
 				text := scanner.Text()
-				w.OutputCh <- text + "\n"
-				w.Output += text + "\n"
+				w.outputCh <- text + "\n"
+				w.output += text + "\n"
 			}
 		})
 
@@ -407,12 +423,12 @@ func executePipelineStep(
 			script,
 		)
 		message := err.Error()
-		w.OutputCh <- message
+		w.outputCh <- message
 		return err
 	case <-ctx.Done():
 		sess.Signal(ssh.SIGINT)
 		message := "step execution cancelled by user"
-		w.OutputCh <- message
+		w.outputCh <- message
 		return RunCancelError{Message: message}
 	case err := <-doneCh:
 		return err
