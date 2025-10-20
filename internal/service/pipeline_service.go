@@ -588,7 +588,7 @@ func (s *PipelineService) AddRunQueues(ids []int64, maxRuns int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, id := range ids {
-		s.queues[id] = NewRunQueue(maxRuns)
+		s.queues[id] = NewRunQueue(s, maxRuns)
 	}
 }
 
@@ -596,7 +596,7 @@ func (s *PipelineService) StartRunQueues() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i := range s.queues {
-		go s.queues[i].Run(s)
+		go s.queues[i].Run()
 	}
 }
 
@@ -604,7 +604,7 @@ func (s *PipelineService) AddRunQueue(id int64, maxRuns int64) {
 	// Adds and starts a new RunQueue
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.queues[id] = NewRunQueue(maxRuns)
+	s.queues[id] = NewRunQueue(s, maxRuns)
 }
 
 func (s *PipelineService) StartRunQueue(id int64) error {
@@ -612,7 +612,7 @@ func (s *PipelineService) StartRunQueue(id int64) error {
 	if !ok {
 		return fmt.Errorf("run queue for pipeline %d does not exist", id)
 	}
-	go rq.Run(s)
+	go rq.Run()
 	return nil
 }
 

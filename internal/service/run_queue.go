@@ -18,10 +18,11 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func NewRunQueue(maxRuns int64) *RunQueue {
+func NewRunQueue(pipelineService PipelineServicer, maxRuns int64) *RunQueue {
 	return &RunQueue{
 		Queue:            make(chan *store.Run, maxRuns),
 		Done:             make(chan struct{}),
+		pipelineService:  pipelineService,
 		OutputSSEClients: NewSSEClientMap[string](),
 		StatusSSEClients: NewSSEClientMap[store.Run](),
 		CancelRunMap:     NewCancelMap[int64](),
@@ -40,7 +41,7 @@ type RunQueue struct {
 	mu sync.Mutex
 }
 
-func (rq *RunQueue) Run(pipelineService PipelineServicer) {
+func (rq *RunQueue) Run() {
 	for {
 		select {
 		case run := <-rq.Queue:
@@ -56,7 +57,7 @@ func (rq *RunQueue) Run(pipelineService PipelineServicer) {
 			go rq.handleOutput(ctx, w)
 			go rq.handleStatus(w)
 
-			if err := processRun(ctx, pipelineService, w); err != nil {
+			if err := rq.processRun(ctx, w); err != nil {
 				endedOn := time.Now().UTC()
 				run.EndedOn = &endedOn
 				run.Output = &w.Output
@@ -66,7 +67,7 @@ func (rq *RunQueue) Run(pipelineService PipelineServicer) {
 				} else {
 					run.Status = store.StatusFailed
 				}
-				if sqlErr := pipelineService.UpdateRunEndedOn(
+				if sqlErr := rq.pipelineService.UpdateRunEndedOn(
 					context.Background(),
 					run.RunID,
 					run.Status,
@@ -77,7 +78,7 @@ func (rq *RunQueue) Run(pipelineService PipelineServicer) {
 					log.Println("err updating run status to failed:", errors.Join(err, sqlErr))
 				}
 				log.Println("err processing pipeline:", err)
-				r, err := pipelineService.GetRunByID(context.Background(), run.RunID)
+				r, err := rq.pipelineService.GetRunByID(context.Background(), run.RunID)
 				if err != nil {
 					log.Println("err getting run by id")
 				} else {
@@ -85,6 +86,13 @@ func (rq *RunQueue) Run(pipelineService PipelineServicer) {
 					w.RunStatusCh <- *r
 				}
 			}
+
+			failMessage := `
+			=============================================
+			FAIL || Pipeline execution failed.
+			=============================================
+			`
+			w.OutputCh <- failMessage
 			close(w.OutputCh)
 			close(w.RunStatusCh)
 			rq.CancelRunMap.RemoveCancel(run.RunID)
@@ -119,12 +127,11 @@ func (rq *RunQueue) handleStatus(w *Worker) {
 	}
 }
 
-func processRun(
+func (rq *RunQueue) processRun(
 	ctx context.Context,
-	pipelineService PipelineServicer,
 	w *Worker,
 ) error {
-	p, a, c, err := pipelineService.GetPipelineAgentAndCredential(
+	p, a, c, err := rq.pipelineService.GetPipelineAgentAndCredential(
 		context.Background(),
 		w.Run.RunPipelineID,
 	)
@@ -145,7 +152,7 @@ func processRun(
 	startedOn := time.Now().UTC()
 	rd.Run.StartedOn = &startedOn
 
-	if err := pipelineService.UpdateRunStartedOn(
+	if err := rq.pipelineService.UpdateRunStartedOn(
 		context.Background(),
 		rd.Run.RunID,
 		rd.Workdir,
@@ -156,7 +163,7 @@ func processRun(
 		return err
 	}
 
-	r, err := pipelineService.GetRunByID(context.Background(), w.Run.RunID)
+	r, err := rq.pipelineService.GetRunByID(context.Background(), w.Run.RunID)
 	if err != nil {
 		w.OutputCh <- "err getting run by ID"
 		return err
@@ -224,16 +231,19 @@ func processRun(
 		return err
 	}
 
-	w.OutputCh <- "\n=============================================\n"
-	w.OutputCh <- "PASS || Executed pipeline steps successfully.\n"
-	w.OutputCh <- "=============================================\n"
+	passMessage := `
+	=============================================
+	PASS || Executed pipeline steps successfully.
+	=============================================
+	`
+	w.OutputCh <- passMessage
 
 	// update run status and output
 	rd.Run.Output = &w.Output
 	rd.Run.Status = store.StatusPassed
 	endedOn := time.Now().UTC()
 	rd.Run.EndedOn = &endedOn
-	if err := pipelineService.UpdateRunEndedOn(
+	if err := rq.pipelineService.UpdateRunEndedOn(
 		context.Background(),
 		rd.Run.RunID,
 		rd.Run.Status,
@@ -245,13 +255,14 @@ func processRun(
 		return err
 	}
 
-	r, err = pipelineService.GetRunByID(context.Background(), w.Run.RunID)
+	r, err = rq.pipelineService.GetRunByID(context.Background(), w.Run.RunID)
 	if err != nil {
 		w.OutputCh <- "err getting run by id"
 		return err
 	}
 
 	w.Run = r
+	log.Println("sending final status")
 	w.RunStatusCh <- *r
 
 	return nil
