@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 
 	assets "github.com/haatos/simple-ci"
 	"github.com/haatos/simple-ci/internal"
@@ -22,7 +23,7 @@ import (
 
 func main() {
 	internal.InitializeConfiguration()
-	settings.ReadDotenv()
+	settings.ReadDotenv("./.env")
 	settings.Settings = settings.NewSettings()
 	hashKey, blockKey := security.NewKeys()
 	rdb := store.InitDatabase(true)
@@ -40,7 +41,7 @@ func main() {
 	userSvc := service.NewUserService(store.NewUserSQLiteStore(rdb, rwdb))
 	credSvc := service.NewCredentialService(
 		store.NewCredentialSQLiteStore(rdb, rwdb),
-		security.NewAESEncrypter(),
+		security.NewAESEncrypter([]byte(os.Getenv("SIMPLECI_HASH_KEY"))),
 	)
 	agentSvc := service.NewAgentService(store.NewAgentSQLiteStore(rdb, rwdb), credSvc)
 	apiKeySvc := service.NewAPIKeyService(

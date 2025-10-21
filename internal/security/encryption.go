@@ -32,8 +32,8 @@ type AESEncrypter struct {
 	Key []byte
 }
 
-func NewAESEncrypter() *AESEncrypter {
-	return &AESEncrypter{Key: []byte(os.Getenv("SIMPLECI_HASH_KEY"))}
+func NewAESEncrypter(key []byte) *AESEncrypter {
+	return &AESEncrypter{Key: key}
 }
 
 func (e *AESEncrypter) EncryptAES(text string) string {

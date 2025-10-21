@@ -69,8 +69,7 @@ func (as *AppSettings) SQLiteDbString(readonly bool) string {
 	return as.SQLiteDatabase + "?" + params.Encode()
 }
 
-func ReadDotenv() {
-	path := "./.env"
+func ReadDotenv(path string) {
 	re := regexp.MustCompile(`^[^0-9][A-Z0-9_]+=.+$`)
 	f, err := os.Open(path)
 	if err != nil {
