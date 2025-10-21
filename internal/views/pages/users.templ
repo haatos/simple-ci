@@ -20,65 +20,11 @@ templ UsersPageMain(users []*store.User) {
 					ID:    "add_user_modal",
 					Label: addUserModalButton(templ.Attributes{"onclick": "add_user_modal.showModal()"}),
 				}) {
-				<form
-					id="add-user-form"
-					hx-post="/app/users"
-					hx-target="#users"
-					hx-swap="beforeend"
-				>
-					@components.Select(components.SelectProps{
-						Name:     "user_role_id",
-						Label:    "User role",
-						Options:  userRoleOptions(),
-						Required: true,
-					})
-					@components.Input(
-						components.InputProps{
-							Label:       "Username*",
-							Name:        "username",
-							Placeholder: "Enter a username...",
-							Required:    true,
-						})
-					@components.Input(
-						components.InputProps{
-							Label:       "Password*",
-							Name:        "password",
-							Type:        "password",
-							Placeholder: "Enter a password...",
-							Required:    true,
-						},
-					)
-				</form>
-				<div class="flex justify-between items-center mt-8">
-					<form method="dialog">
-						<button class="btn">Close</button>
-					</form>
-					<button form="add-user-form" type="submit" class="btn btn-primary">Add</button>
-				</div>
-				<script>
-                    document.addEventListener("htmx:afterRequest", function(evt) {
-                        if (evt.detail.elt.id === "add-user-form" && evt.detail.successful) {
-                            add_user_modal.close()
-                        }
-                    })
-                </script>
+				@addUserForm()
 			}
 		</div>
 		<div class="overflow-x-auto">
-			<table class="table">
-				<thead>
-					<tr>
-						<th>Username</th>
-						<th>Role</th>
-						<th></th>
-					</tr>
-				</thead>
-				<tbody id="users">
-					for _, u := range users {
-						@UserRow(u)
-					}
-				</tbody>
-			</table>
+			@usersTable(users)
 		</div>
 	</main>
 }
@@ -87,6 +33,68 @@ templ addUserModalButton(attrs templ.Attributes) {
 	<button { attrs... } class="btn btn-outline">
 		Add user
 	</button>
+}
+
+templ addUserForm() {
+	<form
+		id="add-user-form"
+		hx-post="/app/users"
+		hx-target="#users"
+		hx-swap="beforeend"
+	>
+		@components.Select(components.SelectProps{
+			Name:     "user_role_id",
+			Label:    "User role",
+			Options:  userRoleOptions(),
+			Required: true,
+		})
+		@components.Input(
+			components.InputProps{
+				Label:       "Username*",
+				Name:        "username",
+				Placeholder: "Enter a username...",
+				Required:    true,
+			})
+		@components.Input(
+			components.InputProps{
+				Label:       "Password*",
+				Name:        "password",
+				Type:        "password",
+				Placeholder: "Enter a password...",
+				Required:    true,
+			},
+		)
+	</form>
+	<div class="flex justify-between items-center mt-8">
+		<form method="dialog">
+			<button class="btn">Close</button>
+		</form>
+		<button form="add-user-form" type="submit" class="btn btn-primary">Add</button>
+	</div>
+	<script>
+                    document.addEventListener("htmx:afterRequest", function(evt) {
+                        if (evt.detail.elt.id === "add-user-form" && evt.detail.successful) {
+                            add_user_modal.close()
+                        }
+                    })
+                </script>
+}
+
+templ usersTable(users []*store.User) {
+	<table class="table">
+		<thead>
+			<tr>
+				<th>Username</th>
+				<th>Role</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody id="users">
+			for _, u := range users {
+				@UserRow(u)
+			}
+		</tbody>
+	</table>
 }
 
 func userRoleOptions() []components.SelectOption {
@@ -145,31 +153,38 @@ templ UserRow(u *store.User) {
 			</form>
 		</td>
 		<td class="space-x-2">
-			@components.Modal(components.ModalProps{
-				ID: fmt.Sprintf("edit_user_%d_modal_button", u.UserID),
-				Label: userRowEditButton(
-					templ.Attributes{
-						"onclick": fmt.Sprintf("edit_user_%d_modal_button.showModal()", u.UserID),
-					},
-				),
-			}) {
-				<form
-					id={ fmt.Sprintf("update-user-%d-password-form", u.UserID) }
-					hx-patch={ fmt.Sprintf("/app/users/%d/reset-password", u.UserID) }
-				>
-					@components.Input(components.InputProps{
-						Label:           "Username",
-						Name:            "username",
-						Value:           u.Username,
-						DisabledMessage: "Username cannot be changed",
-					})
-					@components.Input(components.InputProps{
-						Label:       "New password",
-						Name:        "password",
-						Type:        "password",
-						Placeholder: "Enter a new password...",
-					})
-					<script data-id={ fmt.Sprintf("edit_user_%d_modal_close_button", u.UserID) }>
+			@editUserModal(u)
+			@deleteUserModal(u)
+		</td>
+	</tr>
+}
+
+templ editUserModal(u *store.User) {
+	@components.Modal(components.ModalProps{
+		ID: fmt.Sprintf("edit_user_%d_modal_button", u.UserID),
+		Label: userRowEditButton(
+			templ.Attributes{
+				"onclick": fmt.Sprintf("edit_user_%d_modal_button.showModal()", u.UserID),
+			},
+		),
+	}) {
+		<form
+			id={ fmt.Sprintf("update-user-%d-password-form", u.UserID) }
+			hx-patch={ fmt.Sprintf("/app/users/%d/reset-password", u.UserID) }
+		>
+			@components.Input(components.InputProps{
+				Label:           "Username",
+				Name:            "username",
+				Value:           u.Username,
+				DisabledMessage: "Username cannot be changed",
+			})
+			@components.Input(components.InputProps{
+				Label:       "New password",
+				Name:        "password",
+				Type:        "password",
+				Placeholder: "Enter a new password...",
+			})
+			<script data-id={ fmt.Sprintf("edit_user_%d_modal_close_button", u.UserID) }>
                         ((form, id) => {
                             document.addEventListener("htmx:afterRequest", (evt) => {
                                 if (evt.detail.elt.id === form.id && evt.detail.successful) {
@@ -178,37 +193,40 @@ templ UserRow(u *store.User) {
                             })
                         })(document.currentScript.parentElement, document.currentScript.getAttribute("data-id"))
                     </script>
-				</form>
-				<div class="flex justify-between items-center">
-					<form method="dialog">
-						<button
-							id={ fmt.Sprintf("edit_user_%d_modal_close_button", u.UserID) }
-							class="btn"
-						>
-							Close
-						</button>
-					</form>
-					<button
-						type="submit"
-						form={ fmt.Sprintf("update-user-%d-password-form", u.UserID) }
-						class="btn btn-primary"
-					>
-						Update
-					</button>
-				</div>
-			}
-			@components.Modal(components.ModalProps{
-				ID: fmt.Sprintf("delete_user_%d_modal", u.UserID),
-				Label: deleteUserModalButton(templ.Attributes{
-					"onclick": fmt.Sprintf("delete_user_%d_modal.showModal()", u.UserID),
-				}),
-			}) {
-				<h2>Are you sure you want to delete user '<b>{ u.Username }</b>'?</h2>
-				<form
-					id={ fmt.Sprintf("delete-user-%d-form", u.UserID) }
-					hx-delete={ fmt.Sprintf("/app/users/%d", u.UserID) }
+		</form>
+		<div class="flex justify-between items-center">
+			<form method="dialog">
+				<button
+					id={ fmt.Sprintf("edit_user_%d_modal_close_button", u.UserID) }
+					class="btn"
 				>
-					<script>
+					Close
+				</button>
+			</form>
+			<button
+				type="submit"
+				form={ fmt.Sprintf("update-user-%d-password-form", u.UserID) }
+				class="btn btn-primary"
+			>
+				Update
+			</button>
+		</div>
+	}
+}
+
+templ deleteUserModal(u *store.User) {
+	@components.Modal(components.ModalProps{
+		ID: fmt.Sprintf("delete_user_%d_modal", u.UserID),
+		Label: deleteUserModalButton(templ.Attributes{
+			"onclick": fmt.Sprintf("delete_user_%d_modal.showModal()", u.UserID),
+		}),
+	}) {
+		<h2>Are you sure you want to delete user '<b>{ u.Username }</b>'?</h2>
+		<form
+			id={ fmt.Sprintf("delete-user-%d-form", u.UserID) }
+			hx-delete={ fmt.Sprintf("/app/users/%d", u.UserID) }
+		>
+			<script>
                 ((form) => {
                         document.addEventListener("htmx:afterRequest", (evt) => {
                             if (evt.detail.elt.id === form.id && evt.detail.successful) {
@@ -217,22 +235,20 @@ templ UserRow(u *store.User) {
                         })
                     })(document.currentScript.parentElement)
                 </script>
-				</form>
-				<div class="flex justify-between items-center mt-8">
-					<form method="dialog">
-						<button class="btn btn-ghost">Close</button>
-					</form>
-					<button
-						type="submit"
-						form={ fmt.Sprintf("delete-user-%d-form", u.UserID) }
-						class="btn btn-error"
-					>
-						Delete
-					</button>
-				</div>
-			}
-		</td>
-	</tr>
+		</form>
+		<div class="flex justify-between items-center mt-8">
+			<form method="dialog">
+				<button class="btn btn-ghost">Close</button>
+			</form>
+			<button
+				type="submit"
+				form={ fmt.Sprintf("delete-user-%d-form", u.UserID) }
+				class="btn btn-error"
+			>
+				Delete
+			</button>
+		</div>
+	}
 }
 
 templ userRowEditButton(attrs templ.Attributes) {

@@ -48,48 +48,57 @@ templ APIKeyRow(ak *store.APIKey) {
 		<td>{ ak.ID }</td>
 		<td>
 			{ ak.Value }
-			<button class="inline-block ml-2 btn btn-sm btn-ghost">
-				@views.CopyIcon("h-6 w-6", "stroke-base-content/70")
-				<script>
-                    ((btn) => {
-                        btn.addEventListener("click", async (evt) => {
-                            await navigator.clipboard.writeText(btn.parentElement.innerText);
-                            console.log("copied")
-                        })
-                    })(document.currentScript.parentElement)
-                </script>
-			</button>
+			@copyAPIKeyButton()
 		</td>
 		<td>{ ak.CreatedOn.Format("2006 Jan 02") }</td>
 		<td>
-			@components.Modal(components.ModalProps{
-				ID: fmt.Sprintf("delete_api_key_%d_modal", ak.ID),
-				Label: deleteAPIKeyModalButton(
-					templ.Attributes{
-						"onclick": fmt.Sprintf("delete_api_key_%d_modal.showModal()", ak.ID),
-					},
-				),
-			}) {
-				<h2 class="card-title">Confirm delete API key</h2>
-				<p>Are you sure you want to delete the API key?</p>
-				<p class="mt-8">ID: <b>{ fmt.Sprintf("%d", ak.ID) }</b></p>
-				<p>Value: <b>{ ak.Value }</b></p>
-				<div class="flex justify-between items-center mt-8">
-					<form method="dialog">
-						<button class="btn">Cancel</button>
-					</form>
-					<form
-						hx-delete={ fmt.Sprintf("/app/api-keys/%d", ak.ID) }
-						hx-swap="none"
-					>
-						<button
-							id="confirm-delete-button"
-							type="submit"
-							class="btn btn-error"
-						>
-							Delete
-						</button>
-						<script>
+			@deleteAPIKeyModal(ak)
+		</td>
+	</tr>
+}
+
+templ copyAPIKeyButton() {
+	<button class="inline-block ml-2 btn btn-sm btn-ghost">
+		@views.CopyIcon("h-6 w-6", "stroke-base-content/70")
+		<script>
+            ((btn) => {
+                btn.addEventListener("click", async (evt) => {
+                    await navigator.clipboard.writeText(btn.parentElement.innerText);
+                })
+            })(document.currentScript.parentElement)
+        </script>
+	</button>
+}
+
+templ deleteAPIKeyModal(ak *store.APIKey) {
+	@components.Modal(components.ModalProps{
+		ID: fmt.Sprintf("delete_api_key_%d_modal", ak.ID),
+		Label: deleteAPIKeyModalButton(
+			templ.Attributes{
+				"onclick": fmt.Sprintf("delete_api_key_%d_modal.showModal()", ak.ID),
+			},
+		),
+	}) {
+		<h2 class="card-title">Confirm delete API key</h2>
+		<p>Are you sure you want to delete the API key?</p>
+		<p class="mt-8">ID: <b>{ fmt.Sprintf("%d", ak.ID) }</b></p>
+		<p>Value: <b>{ ak.Value }</b></p>
+		<div class="flex justify-between items-center mt-8">
+			<form method="dialog">
+				<button class="btn">Cancel</button>
+			</form>
+			<form
+				hx-delete={ fmt.Sprintf("/app/api-keys/%d", ak.ID) }
+				hx-swap="none"
+			>
+				<button
+					id="confirm-delete-button"
+					type="submit"
+					class="btn btn-error"
+				>
+					Delete
+				</button>
+				<script>
                             ((form) => {
                                 document.addEventListener("htmx:afterRequest", (evt) => {
                                     if (evt.detail.elt === form && evt.detail.successful) {
@@ -98,11 +107,9 @@ templ APIKeyRow(ak *store.APIKey) {
                                 })
                             })(document.currentScript.parentElement)
                         </script>
-					</form>
-				</div>
-			}
-		</td>
-	</tr>
+			</form>
+		</div>
+	}
 }
 
 templ deleteAPIKeyModalButton(attrs templ.Attributes) {

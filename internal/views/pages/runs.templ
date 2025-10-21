@@ -74,40 +74,7 @@ templ runsTableRow(r store.Run) {
 		<td>{ formatRunRowTime(r.StartedOn) }</td>
 		<td>{ formatRunRowTime(r.EndedOn) }</td>
 		<td class="flex justify-end items-center">
-			@components.Tooltip(components.TooltipProps{Tip: "Cancel run"}) {
-				@components.Modal(
-					components.ModalProps{
-						ID: fmt.Sprintf("cancel_run_%d_modal", r.RunID),
-						Label: cancelPipelineRunModalButton(
-							r.EndedOn != nil && !r.EndedOn.IsZero(),
-							templ.Attributes{"onclick": fmt.Sprintf("cancel_run_%d_modal.showModal()", r.RunID)}),
-					}) {
-					<h2 class="card-title">Cancel pipeline run ID { fmt.Sprintf("%d", r.RunID) }</h2>
-					<p>Are you sure you want to cancel the pipeline run?</p>
-					<div class="flex justify-between items-center mt-8">
-						<form method="dialog">
-							<button class="btn">Close</button>
-							<script data-id={ fmt.Sprintf("cancel_run_%d_btn", r.RunID) }>
-                                ((form, btnId) => {
-                                    document.addEventListener("htmx:afterRequest", (evt) => {
-                                        if (evt.detail.elt.id == btnId && evt.detail.successful) {
-                                            form.querySelector("button").click()
-                                        }
-                                    })
-                                })(document.currentScript.parentElement, document.currentScript.getAttribute("data-id"))
-                            </script>
-						</form>
-						<button
-							id={ fmt.Sprintf("cancel_run_%d_btn", r.RunID) }
-							type="submit"
-							class="btn btn-error"
-							hx-post={ fmt.Sprintf("/app/pipelines/%d/runs/%d/cancel", r.RunPipelineID, r.RunID) }
-						>
-							Cancel
-						</button>
-					</div>
-				}
-			}
+			@cancelRunModal(r)
 			@components.Tooltip(components.TooltipProps{Tip: "Download artifacts"}) {
 				<a
 					href={ templ.SafeURL(fmt.Sprintf("/app/pipelines/%d/runs/%d/artifacts", r.RunPipelineID, r.RunID)) }
@@ -126,6 +93,43 @@ templ runsTableRow(r store.Run) {
 			}
 		</td>
 	</tr>
+}
+
+templ cancelRunModal(r store.Run) {
+	@components.Tooltip(components.TooltipProps{Tip: "Cancel run"}) {
+		@components.Modal(
+			components.ModalProps{
+				ID: fmt.Sprintf("cancel_run_%d_modal", r.RunID),
+				Label: cancelPipelineRunModalButton(
+					r.EndedOn != nil && !r.EndedOn.IsZero(),
+					templ.Attributes{"onclick": fmt.Sprintf("cancel_run_%d_modal.showModal()", r.RunID)}),
+			}) {
+			<h2 class="card-title">Cancel pipeline run ID { fmt.Sprintf("%d", r.RunID) }</h2>
+			<p>Are you sure you want to cancel the pipeline run?</p>
+			<div class="flex justify-between items-center mt-8">
+				<form method="dialog">
+					<button class="btn">Close</button>
+					<script data-id={ fmt.Sprintf("cancel_run_%d_btn", r.RunID) }>
+                                ((form, btnId) => {
+                                    document.addEventListener("htmx:afterRequest", (evt) => {
+                                        if (evt.detail.elt.id == btnId && evt.detail.successful) {
+                                            form.querySelector("button").click()
+                                        }
+                                    })
+                                })(document.currentScript.parentElement, document.currentScript.getAttribute("data-id"))
+                            </script>
+				</form>
+				<button
+					id={ fmt.Sprintf("cancel_run_%d_btn", r.RunID) }
+					type="submit"
+					class="btn btn-error"
+					hx-post={ fmt.Sprintf("/app/pipelines/%d/runs/%d/cancel", r.RunPipelineID, r.RunID) }
+				>
+					Cancel
+				</button>
+			</div>
+		}
+	}
 }
 
 func formatRunRowTime(t *time.Time) string {

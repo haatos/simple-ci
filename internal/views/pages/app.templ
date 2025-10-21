@@ -13,116 +13,38 @@ templ AppPage(user *store.User) {
 templ AppMain(user *store.User) {
 	<main class="w-full flex space-x-4 px-4">
 		<div class="w-full border border-base-content/20 rounded-box grid grid-cols-2 gap-4 p-4">
-			@components.Card(components.CardProps{
-				Title:     "Credentials",
-				TitleIcon: views.CredentialsIcon(),
-				Content:   "View and manage SSH private keys",
-				Class:     "border border-base-content/20 rounded-box",
-			}) {
-				<a
-					href="/app/credentials"
-					hx-get="/app/credentials"
-					hx-swap="outerHTML"
-					hx-target="main"
-					hx-push-url="true"
-					class="btn btn-ghost"
-				>
-					@dashboardCardButtonIcon()
-				</a>
-			}
-			@components.Card(components.CardProps{
-				Title:     "Agents",
-				TitleIcon: views.AgentsIcon(),
-				Content:   "View and manage agents",
-				Class:     "border border-base-content/20 rounded-box",
-			}) {
-				<a
-					href="/app/agents"
-					hx-get="/app/agents"
-					hx-swap="outerHTML"
-					hx-target="main"
-					hx-push-url="true"
-					class="btn btn-ghost"
-				>
-					@dashboardCardButtonIcon()
-				</a>
-			}
-			@components.Card(components.CardProps{
-				Title:     "Pipelines",
-				TitleIcon: views.PipelinesIcon(),
-				Content:   "View and manage pipelines",
-				Class:     "border border-base-content/20 rounded-box",
-			}) {
-				<a
-					href="/app/pipelines"
-					hx-get="/app/pipelines"
-					hx-swap="outerHTML"
-					hx-target="main"
-					hx-push-url="true"
-					class="btn btn-ghost"
-				>
-					@dashboardCardButtonIcon()
-				</a>
-			}
-			if user.IsAdmin() {
-				@components.Card(components.CardProps{
-					Title:     "API Keys",
-					TitleIcon: views.APIKeysIcon(),
-					Content:   "View and manage API keys",
-					Class:     "border border-base-content/20 rounded-box",
-				}) {
-					<a
-						href="/app/api-keys"
-						hx-get="/app/api-keys"
-						hx-swap="outerHTML"
-						hx-target="main"
-						hx-push-url="true"
-						class="btn btn-ghost"
-					>
-						@dashboardCardButtonIcon()
-					</a>
-				}
-			}
+			@appCard("Credentials", "View and manage SSH private keys", "/app/credentials", views.CredentialsIcon())
+			@appCard("Agents", "View and manage agents", "/app/agents", views.AgentsIcon())
+			@appCard("Pipelines", "View and manage pipelines", "/app/pipelines", views.PipelinesIcon())
 			if user.IsSuperuser() {
-				@components.Card(components.CardProps{
-					Title:     "Users",
-					TitleIcon: views.UsersIcon(),
-					Content:   "View and manage users",
-					Class:     "border border-base-content/20 rounded-box",
-				}) {
-					<a
-						href="/app/users"
-						hx-get="/app/users"
-						hx-swap="outerHTML"
-						hx-target="main"
-						hx-push-url="true"
-						class="btn btn-ghost"
-					>
-						@dashboardCardButtonIcon()
-					</a>
-				}
+				@appCard("Users", "View and manager users", "/app/users", views.UsersIcon())
 			}
 			if user.IsAdmin() {
-				@components.Card(components.CardProps{
-					Title:     "Config",
-					TitleIcon: views.SettingsIcon(),
-					Content:   "Configure SimpleCI settings",
-					Class:     "border border-base-content/20 rounded-box",
-				}) {
-					<a
-						href="/app/config"
-						hx-get="/app/config"
-						hx-swap="outerHTML"
-						hx-target="main"
-						hx-push-url="true"
-						class="btn btn-ghost"
-					>
-						@dashboardCardButtonIcon()
-					</a>
-				}
+				@appCard("API Keys", "View and manage API keys", "/app/api-keys", views.APIKeysIcon())
+				@appCard("Config", "Configure SimpleCI", "/app/config", views.ConfigIcon())
 			}
 		</div>
 	</main>
+}
+
+templ appCard(title, content, url string, icon templ.Component) {
+	@components.Card(components.CardProps{
+		Title:     title,
+		TitleIcon: icon,
+		Content:   content,
+		Class:     "border border-base-content/20 rounded-box",
+	}) {
+		<a
+			href={ templ.SafeURL(url) }
+			hx-get={ url }
+			hx-swap="outerHTML"
+			hx-target="main"
+			hx-push-url="true"
+			class="btn btn-ghost"
+		>
+			@dashboardCardButtonIcon()
+		</a>
+	}
 }
 
 templ dashboardCardButtonIcon() {
