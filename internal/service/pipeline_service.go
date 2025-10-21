@@ -608,12 +608,8 @@ func (s *PipelineService) EnqueueRun(r *store.Run) error {
 		return fmt.Errorf("run queue for pipeline %d does not exist", r.RunPipelineID)
 	}
 
-	select {
-	case rq.Queue <- r:
-		return nil
-	default:
-		return NewErrRunQueueFull()
-	}
+	return rq.Enqueue(r)
+
 }
 
 func (s *PipelineService) ShutdownRunQueue(id int64) {

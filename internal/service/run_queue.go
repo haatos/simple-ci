@@ -21,38 +21,51 @@ import (
 
 func NewRunQueue(pipelineService PipelineServicer, maxRuns int64) *RunQueue {
 	return &RunQueue{
-		Queue:            make(chan *store.Run, maxRuns),
-		Done:             make(chan struct{}),
+		queue:            make(chan *store.Run, maxRuns),
+		done:             make(chan struct{}),
 		pipelineService:  pipelineService,
+		cancelRunMap:     NewCancelMap[int64](),
 		OutputSSEClients: NewSSEClientMap[string](),
 		StatusSSEClients: NewSSEClientMap[store.Run](),
-		CancelRunMap:     NewCancelMap[int64](),
 	}
 }
 
 type RunQueue struct {
-	Queue chan *store.Run
-	Done  chan struct{}
+	queue chan *store.Run
+	done  chan struct{}
 
 	pipelineService  PipelineServicer
+	cancelRunMap     *CancelMap[int64]
 	OutputSSEClients *SSEClientMap[string]
 	StatusSSEClients *SSEClientMap[store.Run]
-	CancelRunMap     *CancelMap[int64]
 
 	outputCh chan string
 	statusCh chan store.Run
 	mu       sync.Mutex
 }
 
+func (rq *RunQueue) CancelRun(runID int64) {
+	rq.cancelRunMap.Call(runID)
+}
+
+func (rq *RunQueue) Enqueue(r *store.Run) error {
+	select {
+	case rq.queue <- r:
+		return nil
+	default:
+		return NewErrRunQueueFull()
+	}
+}
+
 func (rq *RunQueue) Run() {
 	for {
 		select {
-		case run := <-rq.Queue:
+		case run := <-rq.queue:
 			rq.outputCh = make(chan string)
 			rq.statusCh = make(chan store.Run)
 
 			ctx, cancel := context.WithCancel(context.Background())
-			rq.CancelRunMap.AddCancel(run.RunID, cancel)
+			rq.cancelRunMap.AddCancel(run.RunID, cancel)
 
 			go rq.handleOutput(ctx, run.RunID)
 			go rq.handleStatus()
@@ -93,9 +106,9 @@ FAIL || Pipeline execution failed.
 
 			close(rq.outputCh)
 			close(rq.statusCh)
-			rq.CancelRunMap.RemoveCancel(run.RunID)
-		case <-rq.Done:
-			close(rq.Queue)
+			rq.cancelRunMap.RemoveCancel(run.RunID)
+		case <-rq.done:
+			close(rq.queue)
 			return
 		}
 	}
@@ -105,9 +118,9 @@ func (rq *RunQueue) Shutdown() {
 	rq.mu.Lock()
 	defer rq.mu.Unlock()
 	select {
-	case <-rq.Done:
+	case <-rq.done:
 	default:
-		close(rq.Done)
+		close(rq.done)
 	}
 }
 

@@ -355,10 +355,8 @@ func (h *PipelineHandler) GetPipelineRunSSE(c echo.Context) error {
 
 	id := uuid.NewString()
 
-	rq.StatusSSEClients.AddClient(rp.RunID, id)
-	defer func() {
-		rq.StatusSSEClients.RemoveClient(rp.RunID, id)
-	}()
+	rq.StatusSSEClients.AddClient(id)
+	defer rq.StatusSSEClients.RemoveClient(id)
 
 	for {
 		select {
@@ -482,8 +480,8 @@ func (h *PipelineHandler) GetRunOutput(c echo.Context) error {
 
 	id := uuid.NewString()
 
-	rq.OutputSSEClients.AddClient(rp.RunID, id)
-	defer rq.OutputSSEClients.RemoveClient(rp.RunID, id)
+	rq.OutputSSEClients.AddClient(id)
+	defer rq.OutputSSEClients.RemoveClient(id)
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -523,10 +521,10 @@ func (h *PipelineHandler) GetRunStatus(c echo.Context) error {
 	}
 
 	id := uuid.NewString()
-	rq.StatusSSEClients.AddClient(rp.RunID, id)
+	rq.StatusSSEClients.AddClient(id)
 
 	defer func() {
-		rq.StatusSSEClients.RemoveClient(rp.RunID, id)
+		rq.StatusSSEClients.RemoveClient(id)
 	}()
 
 	for {
@@ -561,7 +559,7 @@ func (h *PipelineHandler) PostCancelPipelineRun(c echo.Context) error {
 		return renderToast(c, views.FailureToast("pipline run queue not found", 3000))
 	}
 
-	rq.CancelRunMap.Call(rp.RunID)
+	rq.CancelRun(rp.RunID)
 
 	return renderToast(c, views.SuccessToast("cancelling run...", 3000))
 }

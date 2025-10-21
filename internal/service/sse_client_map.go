@@ -15,13 +15,13 @@ type SSEClientMap[T any] struct {
 	clients map[string]chan T
 }
 
-func (cm *SSEClientMap[T]) AddClient(id int64, uid string) {
+func (cm *SSEClientMap[T]) AddClient(uid string) {
 	cm.m.Lock()
 	defer cm.m.Unlock()
 	cm.clients[uid] = make(chan T)
 }
 
-func (cm *SSEClientMap[T]) RemoveClient(id int64, uid string) {
+func (cm *SSEClientMap[T]) RemoveClient(uid string) {
 	cm.m.Lock()
 	defer cm.m.Unlock()
 	close(cm.clients[uid])
