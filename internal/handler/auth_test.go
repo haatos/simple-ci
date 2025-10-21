@@ -101,7 +101,7 @@ func TestAuthHandler_GetLoginPage(t *testing.T) {
 		// assert
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusSeeOther, rec.Code)
-		assert.Equal(t, "/app", rec.Header().Get("Location"))
+		assert.Equal(t, "/app", rec.Header().Get(echo.HeaderLocation))
 	})
 }
 

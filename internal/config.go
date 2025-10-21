@@ -81,8 +81,6 @@ func UpdateConfiguration(config *Configuration) error {
 		return err
 	}
 
-	log.Println("updating internal config")
-
 	Config = config
 
 	return nil

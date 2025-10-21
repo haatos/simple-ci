@@ -227,7 +227,6 @@ func TestUserSQLiteStore_CreateAuthSession(t *testing.T) {
 		assert.Error(t, err)
 		sqliteErr, ok := err.(*sqlite.Error)
 		assert.True(t, ok)
-		log.Println("ERROR CODE:", sqliteErr.Code())
 		assert.Equal(t, sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY, sqliteErr.Code())
 		assert.Nil(t, as)
 	})

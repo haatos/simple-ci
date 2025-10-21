@@ -32,11 +32,11 @@ func IsAuthenticated(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func RoleMiddleware(role types.Role) func(next echo.HandlerFunc) echo.HandlerFunc {
+func RoleMiddleware(requiredRole types.Role) func(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			u := getCtxUser(c)
-			if u == nil || u.UserRoleID < role {
+			if u == nil || int64(u.UserRoleID) < int64(requiredRole) {
 				return newError(c, nil,
 					http.StatusForbidden,
 					"invalid permissions",
