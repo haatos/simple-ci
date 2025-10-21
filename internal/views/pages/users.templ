@@ -14,8 +14,12 @@ templ UsersPage(user *store.User, users []*store.User) {
 
 templ UsersPageMain(users []*store.User) {
 	<main class="w-full p-4 border border-base-content/20 rounded-box space-y-4">
-		<div class="my-8">
-			@components.Modal(components.ModalProps{ID: "add_user_modal", Label: "Add user"}) {
+		<div>
+			@components.Modal(
+				components.ModalProps{
+					ID:    "add_user_modal",
+					Label: addUserModalButton(templ.Attributes{"onclick": "add_user_modal.showModal()"}),
+				}) {
 				<form
 					id="add-user-form"
 					hx-post="/app/users"
@@ -77,6 +81,12 @@ templ UsersPageMain(users []*store.User) {
 			</table>
 		</div>
 	</main>
+}
+
+templ addUserModalButton(attrs templ.Attributes) {
+	<button { attrs... } class="btn btn-outline">
+		Add user
+	</button>
 }
 
 func userRoleOptions() []components.SelectOption {

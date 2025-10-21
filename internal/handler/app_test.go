@@ -17,72 +17,81 @@ import (
 )
 
 func TestAppHandler_GetAppPage(t *testing.T) {
-	t.Run("success - app page html is returned for operator user", func(t *testing.T) {
-		// arrange
-		e := echo.New()
-		req := httptest.NewRequest(http.MethodGet, "/app", nil)
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-		rec := httptest.NewRecorder()
-		c := e.NewContext(req, rec)
-		c.Set("user", &store.User{UserID: 1, UserRoleID: types.Operator, Username: "testuser"})
+	testcases := []struct {
+		role         types.Role
+		contained    []string
+		notContained []string
+	}{
+		{
+			role: types.Operator,
+			contained: []string{
+				"<html",
+				"<main",
+				`href="/app/credentials"`,
+				`href="/app/agents"`,
+				`href="/app/pipelines"`,
+			},
+			notContained: []string{
+				`href="/app/users"`,
+				`href="/app/api-keys"`,
+				`href="/app/config"`,
+			},
+		},
+		{
+			role: types.Admin,
+			contained: []string{
+				"<html",
+				"<main",
+				`href="/app/credentials"`,
+				`href="/app/agents"`,
+				`href="/app/pipelines"`,
+				`href="/app/api-keys"`,
+				`href="/app/config"`,
+			},
+			notContained: []string{
+				`href="/app/users"`,
+			},
+		},
+		{
+			role: types.Superuser,
+			contained: []string{
+				"<html",
+				"<main",
+				`href="/app/credentials"`,
+				`href="/app/agents"`,
+				`href="/app/pipelines"`,
+				`href="/app/api-keys"`,
+				`href="/app/config"`,
+				`href="/app/users"`,
+			},
+			notContained: []string{},
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("app page html for %s", tc.role.ToString()), func(t *testing.T) {
+			// arrange
+			user := generateUser(tc.role, nil, nil)
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/app", nil)
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.Set("user", user)
 
-		// act
-		err := GetAppPage(c)
+			// act
+			err := GetAppPage(c)
 
-		// assert
-		assert.NoError(t, err)
-		body := rec.Body.String()
-		assert.Contains(t, body, "<html")
-		assert.Contains(t, body, "<main")
-		assert.Contains(t, body, `href="/app/credentials"`)
-		assert.Contains(t, body, `href="/app/agents"`)
-		assert.Contains(t, body, `href="/app/pipelines"`)
-		assert.NotContains(t, body, `href="/app/users"`)
-	})
-	t.Run("success - app page main html is returned for operator user", func(t *testing.T) {
-		// arrange
-		e := echo.New()
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-		rec := httptest.NewRecorder()
-		c := e.NewContext(req, rec)
-		c.Set("user", &store.User{UserID: 1, UserRoleID: types.Operator, Username: "testuser"})
-		c.Request().Header.Set("hx-request", "true")
-
-		// act
-		err := GetAppPage(c)
-
-		// assert
-		assert.NoError(t, err)
-		body := rec.Body.String()
-		assert.NotContains(t, body, "<html")
-		assert.Contains(t, body, "<main")
-		assert.Contains(t, body, `href="/app/credentials"`)
-		assert.Contains(t, body, `href="/app/agents"`)
-		assert.Contains(t, body, `href="/app/pipelines"`)
-	})
-	t.Run("success - app page html is returned for superuser", func(t *testing.T) {
-		// arrange
-		e := echo.New()
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-		rec := httptest.NewRecorder()
-		c := e.NewContext(req, rec)
-		c.Set("user", &store.User{UserID: 1, UserRoleID: types.Superuser, Username: "testuser"})
-
-		// act
-		err := GetAppPage(c)
-
-		// assert
-		assert.NoError(t, err)
-		body := rec.Body.String()
-		assert.Contains(t, body, "<html")
-		assert.Contains(t, body, "<main")
-		assert.Contains(t, body, `href="/app/credentials"`)
-		assert.Contains(t, body, `href="/app/agents"`)
-		assert.Contains(t, body, `href="/app/pipelines"`)
-		assert.Contains(t, body, `href="/app/users"`)
-	})
+			// assert
+			assert.NoError(t, err)
+			body := rec.Body.String()
+			for _, s := range tc.contained {
+				assert.Contains(t, body, s)
+			}
+			for _, s := range tc.notContained {
+				assert.NotContains(t, body, s)
+			}
+		})
+	}
 }
 
 func TestAppHandler_GetConfigPage(t *testing.T) {

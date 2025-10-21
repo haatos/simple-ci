@@ -6,11 +6,11 @@ import "github.com/haatos/simple-ci/internal/store"
 
 templ AppPage(user *store.User) {
 	@views.Layout(user, views.LayoutProps{Title: "App"}) {
-		@AppMain()
+		@AppMain(user)
 	}
 }
 
-templ AppMain() {
+templ AppMain(user *store.User) {
 	<main class="w-full flex space-x-4 px-4">
 		<div class="w-full border border-base-content/20 rounded-box grid grid-cols-2 gap-4 p-4">
 			@components.Card(components.CardProps{
@@ -64,22 +64,62 @@ templ AppMain() {
 					@dashboardCardButtonIcon()
 				</a>
 			}
-			@components.Card(components.CardProps{
-				Title:     "Config",
-				TitleIcon: views.SettingsIcon(),
-				Content:   "Configure SimpleCI settings",
-				Class:     "border border-base-content/20 rounded-box",
-			}) {
-				<a
-					href="/app/config"
-					hx-get="/app/config"
-					hx-swap="outerHTML"
-					hx-target="main"
-					hx-push-url="true"
-					class="btn btn-ghost"
-				>
-					@dashboardCardButtonIcon()
-				</a>
+			if user.IsAdmin() {
+				@components.Card(components.CardProps{
+					Title:     "API Keys",
+					TitleIcon: views.APIKeysIcon(),
+					Content:   "View and manage API keys",
+					Class:     "border border-base-content/20 rounded-box",
+				}) {
+					<a
+						href="/app/api-keys"
+						hx-get="/app/api-keys"
+						hx-swap="outerHTML"
+						hx-target="main"
+						hx-push-url="true"
+						class="btn btn-ghost"
+					>
+						@dashboardCardButtonIcon()
+					</a>
+				}
+			}
+			if user.IsSuperuser() {
+				@components.Card(components.CardProps{
+					Title:     "Users",
+					TitleIcon: views.UsersIcon(),
+					Content:   "View and manage users",
+					Class:     "border border-base-content/20 rounded-box",
+				}) {
+					<a
+						href="/app/users"
+						hx-get="/app/users"
+						hx-swap="outerHTML"
+						hx-target="main"
+						hx-push-url="true"
+						class="btn btn-ghost"
+					>
+						@dashboardCardButtonIcon()
+					</a>
+				}
+			}
+			if user.IsAdmin() {
+				@components.Card(components.CardProps{
+					Title:     "Config",
+					TitleIcon: views.SettingsIcon(),
+					Content:   "Configure SimpleCI settings",
+					Class:     "border border-base-content/20 rounded-box",
+				}) {
+					<a
+						href="/app/config"
+						hx-get="/app/config"
+						hx-swap="outerHTML"
+						hx-target="main"
+						hx-push-url="true"
+						class="btn btn-ghost"
+					>
+						@dashboardCardButtonIcon()
+					</a>
+				}
 			}
 		</div>
 	</main>

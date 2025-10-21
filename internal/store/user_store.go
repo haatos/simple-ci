@@ -19,6 +19,10 @@ type User struct {
 	SessionExpires sql.NullTime `json:"session_expires"`
 }
 
+func (u *User) IsAdmin() bool {
+	return u != nil && (u.UserRoleID == types.Admin || u.UserRoleID == types.Superuser)
+}
+
 func (u *User) IsSuperuser() bool {
 	return u != nil && u.UserRoleID == types.Superuser
 }

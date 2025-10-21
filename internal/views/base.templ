@@ -225,12 +225,6 @@ templ sideMenu(user *store.User) {
 					Icon:  PipelinesIcon(),
 					Attrs: NavigationLinkAttrs("/app/pipelines"),
 				})
-			@components.MenuItem(
-				components.MenuItemProps{
-					Label: "Config",
-					Icon:  SettingsIcon(),
-					Attrs: NavigationLinkAttrs("/app/config"),
-				})
 			if user.IsSuperuser() {
 				@components.MenuItem(
 					components.MenuItemProps{
@@ -239,6 +233,8 @@ templ sideMenu(user *store.User) {
 						Attrs: NavigationLinkAttrs("/app/users"),
 					},
 				)
+			}
+			if user.IsAdmin() {
 				@components.MenuItem(
 					components.MenuItemProps{
 						Label: "API Keys",
@@ -246,6 +242,12 @@ templ sideMenu(user *store.User) {
 						Attrs: NavigationLinkAttrs("/app/api-keys"),
 					},
 				)
+				@components.MenuItem(
+					components.MenuItemProps{
+						Label: "Config",
+						Icon:  SettingsIcon(),
+						Attrs: NavigationLinkAttrs("/app/config"),
+					})
 			}
 		}
 	</aside>

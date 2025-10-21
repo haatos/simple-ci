@@ -13,7 +13,7 @@ import (
 func GetAppPage(c echo.Context) error {
 	u := getCtxUser(c)
 	if isHXRequest(c) {
-		return render(c, pages.AppMain())
+		return render(c, pages.AppMain(u))
 	}
 	return render(c, pages.AppPage(u))
 }
