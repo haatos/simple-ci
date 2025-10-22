@@ -17,7 +17,7 @@ import (
 )
 
 func TestAPIKeysHandler_GetAPIKeysPage(t *testing.T) {
-	t.Run("success - credentials found on page", func(t *testing.T) {
+	t.Run("success - api keys found on page", func(t *testing.T) {
 		// arrange
 		ak := generateAPIKey()
 		ctx := context.Background()
@@ -44,7 +44,7 @@ func TestAPIKeysHandler_GetAPIKeysPage(t *testing.T) {
 		assert.Contains(t, body, fmt.Sprintf(`<td>%d</td>`, ak.ID))
 		assert.Contains(t, body, fmt.Sprintf(`<td>%s`, ak.Value))
 	})
-	t.Run("success - credentials found on main element", func(t *testing.T) {
+	t.Run("success - api keys found on main element", func(t *testing.T) {
 		// arrange
 		ak := generateAPIKey()
 		ctx := context.Background()
