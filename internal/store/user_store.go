@@ -35,6 +35,7 @@ type AuthSession struct {
 
 type UserStore interface {
 	CreateUser(context.Context, types.Role, string, string) (*User, error)
+	CreateSuperuser(context.Context, string, string) (*User, error)
 	ReadUserByID(context.Context, int64) (*User, error)
 	ReadUserByUsername(context.Context, string) (*User, error)
 	ReadUserBySessionID(context.Context, string) (*User, error)

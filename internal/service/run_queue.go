@@ -480,7 +480,9 @@ func runCommand(
 			int(timeout.Seconds()),
 		)
 	case <-ctx.Done():
-		sess.Signal(ssh.SIGINT)
+		if err := sess.Signal(ssh.SIGINT); err != nil {
+			return "", "", RunCancelError{Message: "err sending SIGINT to agent machine"}
+		}
 		message := fmt.Sprintf("command '%s' was cancelled by user", command)
 		if err != nil {
 			message += fmt.Sprintf(": err waiting for SSH terminal to close:: %+v\n", err)

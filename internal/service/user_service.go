@@ -34,7 +34,6 @@ type UserServicer interface {
 		ctx context.Context,
 		userRoleID types.Role,
 		username, password string,
-		updatePasswordChangedOn bool,
 	) (*store.User, error)
 	ListUsers(ctx context.Context) ([]*store.User, error)
 	ChangeUserPassword(
@@ -121,7 +120,6 @@ func (s *UserService) CreateUser(
 	ctx context.Context,
 	userRoleID types.Role,
 	username, password string,
-	updatePasswordChangedOn bool,
 ) (*store.User, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -131,11 +129,7 @@ func (s *UserService) CreateUser(
 	if err != nil {
 		return nil, err
 	}
-	if updatePasswordChangedOn {
-		u.PasswordChangedOn = util.AsPtr(time.Now().UTC())
-		s.userStore.UpdateUserPasswordChangedOn(ctx, u.UserID, u.PasswordChangedOn)
-	}
-	return u, err
+	return u, nil
 }
 
 func (s *UserService) ListUsers(ctx context.Context) ([]*store.User, error) {
@@ -254,12 +248,10 @@ func (s *UserService) InitializeSuperuser(ctx context.Context) {
 			log.Fatal(err)
 		}
 
-		if _, err = s.CreateUser(
+		if _, err = s.userStore.CreateSuperuser(
 			ctx,
-			types.Superuser,
 			username,
 			string(passwordBytes),
-			true,
 		); err != nil {
 			log.Fatal(err)
 		}

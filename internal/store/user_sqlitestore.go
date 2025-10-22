@@ -7,6 +7,7 @@ import (
 
 	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/types"
+	"github.com/haatos/simple-ci/internal/util"
 
 	"github.com/georgysavva/scany/v2/sqlscan"
 )
@@ -44,6 +45,39 @@ func (store *UserSQLiteStore) CreateUser(
 		user.UserRoleID,
 		user.Username,
 		user.PasswordHash,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (store *UserSQLiteStore) CreateSuperuser(
+	ctx context.Context,
+	username string,
+	passwordHash string,
+) (*User, error) {
+	user := new(User)
+	user.UserRoleID = types.Superuser
+	user.Username = username
+	user.PasswordHash = passwordHash
+	user.PasswordChangedOn = util.AsPtr(time.Now().UTC())
+	err := sqlscan.Get(
+		ctx, store.rwdb, user,
+		`
+		insert into users (
+			user_role_id,
+			username,
+			password_hash,
+			password_changed_on
+		)
+		values ($1, $2, $3, $4)
+		returning user_id
+		`,
+		user.UserRoleID,
+		user.Username,
+		user.PasswordHash,
+		user.PasswordChangedOn,
 	)
 	if err != nil {
 		return nil, err

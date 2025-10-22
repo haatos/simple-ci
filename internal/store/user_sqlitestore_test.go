@@ -79,8 +79,56 @@ func TestCreateUser(t *testing.T) {
 	t.Run("failure - username already exists", func(t *testing.T) {
 		// arrange
 		hash, _ := bcrypt.GenerateFromPassword([]byte("testpassword"), bcrypt.DefaultCost)
-		role := types.Admin
+		role := types.Operator
 		username := "existingoperator"
+		sshPrivateKeyHash := string(hash)
+		_, err := userStore.CreateUser(
+			context.Background(),
+			role, username, sshPrivateKeyHash,
+		)
+		assert.NoError(t, err)
+
+		// act
+		u, err := userStore.CreateUser(
+			context.Background(),
+			role, username, sshPrivateKeyHash,
+		)
+
+		// assert
+		assert.Error(t, err)
+		assert.Nil(t, u)
+	})
+}
+
+func TestCreateSuperuser(t *testing.T) {
+	t.Run("success - superuser is stored", func(t *testing.T) {
+		// arrange
+		hash, _ := bcrypt.GenerateFromPassword([]byte("testpassword"), bcrypt.DefaultCost)
+		username := "testsuperuser"
+		sshPrivateKeyHash := string(hash)
+
+		// act
+		u, err := userStore.CreateSuperuser(
+			context.Background(),
+			username,
+			sshPrivateKeyHash,
+		)
+
+		// assert
+		assert.NoError(t, err)
+		assert.NotNil(t, u)
+		assert.NotEqual(t, 0, u.UserID)
+		assert.Equal(t, types.Superuser, u.UserRoleID)
+		assert.Equal(t, username, u.Username)
+		assert.Equal(t, sshPrivateKeyHash, u.PasswordHash)
+		assert.NotNil(t, u.PasswordChangedOn)
+		assert.True(t, u.PasswordChangedOn.Before(time.Now().UTC()))
+	})
+	t.Run("failure - username already exists", func(t *testing.T) {
+		// arrange
+		hash, _ := bcrypt.GenerateFromPassword([]byte("testpassword"), bcrypt.DefaultCost)
+		role := types.Superuser
+		username := "existingsuperuser"
 		sshPrivateKeyHash := string(hash)
 		_, err := userStore.CreateUser(
 			context.Background(),

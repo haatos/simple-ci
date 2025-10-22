@@ -23,13 +23,29 @@ type MockUserStore struct {
 }
 
 func (m *MockUserStore) CreateUser(
-	context.Context,
-	types.Role,
-	string,
-	string,
+	ctx context.Context,
+	role types.Role,
+	username string,
+	password string,
 ) (*store.User, error) {
-	panic("not implemented")
+	args := m.Called(ctx, role, username, password)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.User), nil
 }
+
+func (m *MockUserStore) CreateSuperuser(
+	ctx context.Context,
+	username, password string,
+) (*store.User, error) {
+	args := m.Called(ctx, username, password)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.User), nil
+}
+
 func (m *MockUserStore) ReadUserByID(ctx context.Context, userID int64) (*store.User, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {

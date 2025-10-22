@@ -118,7 +118,6 @@ func TestUsersHandler_PostUsers(t *testing.T) {
 			expectedUser.UserRoleID,
 			expectedUser.Username,
 			testUserPassword,
-			false,
 		).Return(expectedUser, nil)
 
 		formData := url.Values{}
@@ -153,7 +152,6 @@ func TestUsersHandler_PostUsers(t *testing.T) {
 			types.Admin,
 			user.Username,
 			testUserPassword,
-			false,
 		).Return(nil, uniqueConstraintError)
 
 		formData := url.Values{}

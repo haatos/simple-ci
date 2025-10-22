@@ -53,7 +53,6 @@ func (h *UserHandler) PostUsers(c echo.Context) error {
 		up.UserRoleID,
 		up.Username,
 		up.Password,
-		false,
 	)
 	if err != nil {
 		if isUniqueConstraintError(err) {

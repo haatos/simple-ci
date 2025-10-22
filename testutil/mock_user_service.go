@@ -57,9 +57,8 @@ func (m *MockUserService) CreateUser(
 	ctx context.Context,
 	userRoleID types.Role,
 	username, password string,
-	updatePasswordChangedOn bool,
 ) (*store.User, error) {
-	args := m.Called(ctx, userRoleID, username, password, updatePasswordChangedOn)
+	args := m.Called(ctx, userRoleID, username, password)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
