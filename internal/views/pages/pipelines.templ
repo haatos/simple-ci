@@ -87,7 +87,7 @@ templ addNewPipelineForm(agents []*store.Agent) {
 		})
 		<script>
             document.addEventListener("htmx:afterRequest", function(evt) {
-                if (evt.detail.elt.id === "add-new-pipeline-form" && evt.detail.successful) {
+                if (evt.detail.elt.id === "add-new-pipeline-form" && !evt.detail.target.className.includes("modal")) {
                     add_pipeline_modal.close()
                 }
             })
@@ -208,7 +208,7 @@ templ schedulePipelineModal(p *store.Pipeline) {
 			<script data-btn-id={ fmt.Sprintf("schedule_pipeline_%d_close_btn", p.PipelineID) }>
                 ((form, buttonId) => {
                     document.addEventListener("htmx:afterRequest", (evt) => {
-                        if (evt.detail.elt === form && evt.detail.successful) {
+                        if (evt.detail.elt === form && !evt.detail.target.className.includes("modal")) {
                             document.getElementById(buttonId).click();
                         }
                     })

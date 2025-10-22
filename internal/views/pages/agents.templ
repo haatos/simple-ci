@@ -88,7 +88,7 @@ templ addNewAgentForm(credentials []*store.Credential) {
 			Class:       "resize-none"})
 		<script>
             document.addEventListener("htmx:afterRequest", function(evt) {
-                if (evt.detail.elt.id === "add-new-agent-form" && evt.detail.successful) {
+                if (evt.detail.elt.id === "add-new-agent-form" && !evt.detail.target.className.includes("modal")) {
                     add_agent_modal.close()
                 }
             })

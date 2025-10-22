@@ -284,7 +284,14 @@ templ htmxScripts() {
             document.addEventListener("htmx:beforeSwap", (evt) => {
                 if (evt.detail.xhr.status === 400) {
                     evt.detail.shouldSwap = true;
-                    evt.detail.isError = false;
+                    // evt.detail.isError = false;
+                }
+                if (evt.detail.target == document.body) {
+                    let dialog = document.querySelector("dialog.modal");
+                    if (dialog != null) {
+                        evt.detail.target = htmx.find("dialog.modal");
+                        evt.detail.swapOverride = "afterbegin";
+                    }
                 }
             })
         })

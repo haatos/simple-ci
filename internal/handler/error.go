@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/haatos/simple-ci/internal/views"
@@ -27,19 +28,25 @@ func ErrorHandler(err error, c echo.Context) {
 			"handler internal error %s [%d]: %+v\n",
 			c.Request().URL.Path, e.Code, e.Internal,
 		)
-		errorPage(c, e.Code, e.Message.(string))
+		if err := errorPage(c, e.Code, e.Message.(string)); err != nil {
+			log.Printf("err rendering error page: %+v\n", err)
+		}
 	case *HTMXError:
 		c.Logger().Errorf(
 			"handler internal error %s [%d]: %+v\n",
 			c.Request().URL.Path, e.Code, e.Internal,
 		)
-		renderToast(c, views.FailureToast(e.Message.(string), 4000))
+		if err := renderToast(c, views.FailureToast(e.Message.(string), 4000)); err != nil {
+			log.Printf("err rendering toast: %+v\n", err)
+		}
 	default:
 		c.Logger().Errorf("handler error: %+v\n", e)
-		c.JSON(
+		if err := c.JSON(
 			http.StatusInternalServerError,
 			echo.HTTPError{Message: "something went terribly wrong"},
-		)
+		); err != nil {
+			log.Printf("err returning json: %+v\n", err)
+		}
 	}
 }
 
@@ -86,8 +93,8 @@ func newError(c echo.Context, err error, status int, message string) error {
 }
 
 func newErrorString(c echo.Context, err error, status int, target, message string) error {
-	hxReswap(c, "innerHTML")
-	hxRetarget(c, target)
+	_ = hxReswap(c, "innerHTML")
+	_ = hxRetarget(c, target)
 	c.Logger().Errorf(
 		"handler internal error %s [%d]: %+v\n",
 		c.Request().URL.Path, status, err,

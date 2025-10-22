@@ -72,12 +72,12 @@ templ addUserForm() {
 		<button form="add-user-form" type="submit" class="btn btn-primary">Add</button>
 	</div>
 	<script>
-                    document.addEventListener("htmx:afterRequest", function(evt) {
-                        if (evt.detail.elt.id === "add-user-form" && evt.detail.successful) {
-                            add_user_modal.close()
-                        }
-                    })
-                </script>
+        document.addEventListener("htmx:afterRequest", function(evt) {
+            if (evt.detail.elt.id === "add-user-form" && !evt.detail.target.className.includes("modal")) {
+                add_user_modal.close()
+            }
+        })
+    </script>
 }
 
 templ usersTable(users []*store.User) {
@@ -185,14 +185,14 @@ templ editUserModal(u *store.User) {
 				Placeholder: "Enter a new password...",
 			})
 			<script data-id={ fmt.Sprintf("edit_user_%d_modal_close_button", u.UserID) }>
-                        ((form, id) => {
-                            document.addEventListener("htmx:afterRequest", (evt) => {
-                                if (evt.detail.elt.id === form.id && evt.detail.successful) {
-                                    document.getElementById(id).click();
-                                }
-                            })
-                        })(document.currentScript.parentElement, document.currentScript.getAttribute("data-id"))
-                    </script>
+                ((form, id) => {
+                    document.addEventListener("htmx:afterRequest", (evt) => {
+                        if (evt.detail.elt.id === form.id && !evt.detail.target.className.includes("modal")) {
+                            document.getElementById(id).click();
+                        }
+                    })
+                })(document.currentScript.parentElement, document.currentScript.getAttribute("data-id"))
+            </script>
 		</form>
 		<div class="flex justify-between items-center">
 			<form method="dialog">
@@ -228,13 +228,13 @@ templ deleteUserModal(u *store.User) {
 		>
 			<script>
                 ((form) => {
-                        document.addEventListener("htmx:afterRequest", (evt) => {
-                            if (evt.detail.elt.id === form.id && evt.detail.successful) {
-                                form.closest("tr").remove();
-                            }
-                        })
-                    })(document.currentScript.parentElement)
-                </script>
+                    document.addEventListener("htmx:afterRequest", (evt) => {
+                        if (evt.detail.elt.id === form.id && !evt.detail.target.className.includes("modal")) {
+                            form.closest("tr").remove();
+                        }
+                    })
+                })(document.currentScript.parentElement)
+            </script>
 		</form>
 		<div class="flex justify-between items-center mt-8">
 			<form method="dialog">

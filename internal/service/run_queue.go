@@ -21,23 +21,23 @@ import (
 
 func NewRunQueue(pipelineService PipelineServicer, maxRuns int64) *RunQueue {
 	return &RunQueue{
-		queue:            make(chan *store.Run, maxRuns),
-		done:             make(chan struct{}),
 		pipelineService:  pipelineService,
-		cancelRunMap:     NewCancelMap[int64](),
 		OutputSSEClients: NewSSEClientMap[string](),
 		StatusSSEClients: NewSSEClientMap[store.Run](),
+		queue:            make(chan *store.Run, maxRuns),
+		done:             make(chan struct{}),
+		cancelRunMap:     NewCancelMap[int64](),
 	}
 }
 
 type RunQueue struct {
-	queue chan *store.Run
-	done  chan struct{}
-
 	pipelineService  PipelineServicer
-	cancelRunMap     *CancelMap[int64]
 	OutputSSEClients *SSEClientMap[string]
 	StatusSSEClients *SSEClientMap[store.Run]
+
+	queue        chan *store.Run
+	done         chan struct{}
+	cancelRunMap *CancelMap[int64]
 
 	outputCh chan string
 	statusCh chan store.Run
@@ -126,7 +126,9 @@ func (rq *RunQueue) Shutdown() {
 
 func (rq *RunQueue) handleOutput(ctx context.Context, runID int64) {
 	for out := range rq.outputCh {
-		rq.pipelineService.AppendRunOutput(ctx, runID, out)
+		if err := rq.pipelineService.AppendRunOutput(ctx, runID, out); err != nil {
+			log.Printf("err appending run output: %+v\n", err)
+		}
 		rq.OutputSSEClients.SendToClients(out)
 	}
 }
@@ -413,7 +415,7 @@ func (rq *RunQueue) executePipelineStep(
 	select {
 	case <-timeoutCtx.Done():
 		err := fmt.Errorf(
-			"step execution timed out in %d seconds, script: %s",
+			"step execution timed out in %d seconds, script: '%s'",
 			int(timeout.Seconds()),
 			script,
 		)
