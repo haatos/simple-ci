@@ -67,7 +67,8 @@ No Node.js, no Docker required. Just deploy as a single binary.
 
 Use environment variables or a .env file for setup:
 
-- `SIMPLECI_HASH_KEY`: Encryption key. This is automatically generated, and saved into .env, if not found.
+- `SIMPLECI_HASH_KEY`: Encryption key, 32 bytes. This is automatically generated, and saved into .env, if not found.
+- `SIMPLECI_BLOCK_KEY`: Block key, 24 bytes. This is automatically generated, and saved into .env, if not found.
 - `SIMPLECI_DB_PATH`: Path to SQLite DB (default: `./db.sqlite`).
 - `SIMPLECI_PORT`: HTTP listen port (default: `8080`).
 
