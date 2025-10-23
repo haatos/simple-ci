@@ -18,7 +18,7 @@ func NewAgentSQLiteStore(rdb, rwdb *sql.DB) *AgentSQLiteStore {
 func (store *AgentSQLiteStore) CreateAgent(
 	ctx context.Context,
 	credentialID int64,
-	name, hostname, workspace, description string,
+	name, hostname, workspace, description, osType string,
 ) (*Agent, error) {
 	a := &Agent{
 		AgentCredentialID: credentialID,
@@ -26,15 +26,17 @@ func (store *AgentSQLiteStore) CreateAgent(
 		Hostname:          hostname,
 		Workspace:         workspace,
 		Description:       description,
+		OSType:            osType,
 	}
 	query := `insert into agents (
 		agent_credential_id,
 		name,
 		hostname,
 		workspace,
-		description
+		description,
+		os_type
 	)
-	values ($1, $2, $3, $4, $5)
+	values ($1, $2, $3, $4, $5, $6)
 	returning agent_id`
 	err := sqlscan.Get(
 		ctx, store.rwdb, a, query,
@@ -43,6 +45,7 @@ func (store *AgentSQLiteStore) CreateAgent(
 		a.Hostname,
 		a.Workspace,
 		a.Description,
+		a.OSType,
 	)
 	return a, err
 }
@@ -60,15 +63,16 @@ func (store *AgentSQLiteStore) ReadAgentByID(ctx context.Context, id int64) (*Ag
 func (store *AgentSQLiteStore) UpdateAgent(
 	ctx context.Context,
 	agentID int64, credentialID int64,
-	name, hostname, workspace, description string,
+	name, hostname, workspace, description, osType string,
 ) error {
 	query := `update agents
 	set agent_credential_id = $1,
 		name = $2,
 		hostname = $3,
 		workspace = $4,
-		description = $5
-	where agent_id = $6`
+		description = $5,
+		os_type = $6
+	where agent_id = $7`
 	_, err := store.rwdb.ExecContext(
 		ctx, query,
 		credentialID,
@@ -76,6 +80,7 @@ func (store *AgentSQLiteStore) UpdateAgent(
 		hostname,
 		workspace,
 		description,
+		osType,
 		agentID,
 	)
 	return err

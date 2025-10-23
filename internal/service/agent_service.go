@@ -15,7 +15,7 @@ type AgentServicer interface {
 	CreateAgent(
 		ctx context.Context,
 		agentCredentialID int64,
-		name, hostname, workspace, description string,
+		name, hostname, workspace, description, osType string,
 	) (*store.Agent, error)
 	GetAgentByID(context.Context, int64) (*store.Agent, error)
 	GetAgentAndCredentials(context.Context, int64) (*store.Agent, []*store.Credential, error)
@@ -24,7 +24,7 @@ type AgentServicer interface {
 	UpdateAgent(
 		ctx context.Context,
 		agentID int64, agentCredentialID int64,
-		name, hostname, workspace, description string,
+		name, hostname, workspace, description, osType string,
 	) error
 	DeleteAgent(context.Context, int64) error
 
@@ -44,7 +44,7 @@ func NewAgentService(s store.AgentStore, cs CredentialServicer) *AgentService {
 func (s *AgentService) CreateAgent(
 	ctx context.Context,
 	agentCredentialID int64,
-	name, hostname, workspace, description string,
+	name, hostname, workspace, description, osType string,
 ) (*store.Agent, error) {
 	a, err := s.agentStore.CreateAgent(
 		ctx,
@@ -53,6 +53,7 @@ func (s *AgentService) CreateAgent(
 		hostname,
 		workspace,
 		description,
+		osType,
 	)
 	return a, err
 }
@@ -101,7 +102,7 @@ func (s *AgentService) UpdateAgent(
 	ctx context.Context,
 	agentID int64,
 	agentCredentialID int64,
-	name, hostname, workspace, description string,
+	name, hostname, workspace, description, osType string,
 ) error {
 	err := s.agentStore.UpdateAgent(
 		ctx,
@@ -111,6 +112,7 @@ func (s *AgentService) UpdateAgent(
 		hostname,
 		workspace,
 		description,
+		osType,
 	)
 	return err
 }

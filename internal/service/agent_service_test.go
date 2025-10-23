@@ -20,12 +20,9 @@ type MockAgentStore struct {
 func (m *MockAgentStore) CreateAgent(
 	ctx context.Context,
 	credentialID int64,
-	name,
-	hostname,
-	workspace,
-	description string,
+	name, hostname, workspace, description, osType string,
 ) (*store.Agent, error) {
-	args := m.Called(ctx, name, hostname, workspace, description)
+	args := m.Called(ctx, name, hostname, workspace, description, osType)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -47,9 +44,9 @@ func (m *MockAgentStore) UpdateAgent(
 	ctx context.Context,
 	id int64,
 	credentialID int64,
-	name, hostname, workspace, description string,
+	name, hostname, workspace, description, osType string,
 ) error {
-	args := m.Called(ctx, id, credentialID, name, hostname, workspace, description)
+	args := m.Called(ctx, id, credentialID, name, hostname, workspace, description, osType)
 	return args.Error(0)
 }
 
@@ -76,6 +73,7 @@ func TestAgentService_CreateAgent(t *testing.T) {
 			expectedAgent.Hostname,
 			expectedAgent.Workspace,
 			expectedAgent.Description,
+			expectedAgent.OSType,
 		).Return(expectedAgent, nil)
 		agentService := NewAgentService(mockStore, nil)
 
@@ -87,6 +85,7 @@ func TestAgentService_CreateAgent(t *testing.T) {
 			expectedAgent.Hostname,
 			expectedAgent.Workspace,
 			expectedAgent.Description,
+			expectedAgent.OSType,
 		)
 
 		// assert
@@ -97,6 +96,7 @@ func TestAgentService_CreateAgent(t *testing.T) {
 		assert.Equal(t, expectedAgent.Hostname, agent.Hostname)
 		assert.Equal(t, expectedAgent.Workspace, agent.Workspace)
 		assert.Equal(t, expectedAgent.Description, agent.Description)
+		assert.Equal(t, expectedAgent.OSType, agent.OSType)
 	})
 }
 
@@ -169,6 +169,7 @@ func TestAgentService_UpdateAgent(t *testing.T) {
 			expectedAgent.Hostname,
 			expectedAgent.Workspace,
 			expectedAgent.Description,
+			expectedAgent.OSType,
 		).Return(nil)
 		agentService := NewAgentService(mockStore, nil)
 
@@ -181,6 +182,7 @@ func TestAgentService_UpdateAgent(t *testing.T) {
 			expectedAgent.Hostname,
 			expectedAgent.Workspace,
 			expectedAgent.Description,
+			expectedAgent.OSType,
 		)
 
 		// assert
@@ -269,6 +271,7 @@ func generateAgent(credentialID int64) *store.Agent {
 		Hostname:          "localhost",
 		Workspace:         "/tmp",
 		Description:       fmt.Sprintf("description%d", time.Now().UnixNano()),
+		OSType:            "unix",
 	}
 	return agent
 }

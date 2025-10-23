@@ -42,6 +42,8 @@ type RunQueue struct {
 	outputCh chan string
 	statusCh chan store.Run
 	mu       sync.Mutex
+
+	pathSep, mkdirCmd, chainOp string
 }
 
 func (rq *RunQueue) CancelRun(runID int64) {
@@ -71,37 +73,7 @@ func (rq *RunQueue) Run() {
 			go rq.handleStatus()
 
 			if err := rq.processRun(ctx, run); err != nil {
-				endedOn := time.Now().UTC()
-				run.EndedOn = &endedOn
-				if _, ok := err.(RunCancelError); ok {
-					run.Status = store.StatusCancelled
-				} else {
-					run.Status = store.StatusFailed
-				}
-				if sqlErr := rq.pipelineService.UpdateRunEndedOn(
-					context.Background(),
-					run.RunID,
-					run.Status,
-					run.Artifacts,
-					run.EndedOn,
-				); sqlErr != nil {
-					log.Println("err updating run status to failed:", errors.Join(err, sqlErr))
-				}
-				log.Println("err processing pipeline:", err)
-				r, err := rq.pipelineService.GetRunByID(context.Background(), run.RunID)
-				if err != nil {
-					log.Println("err getting run by id")
-				} else {
-					run = r
-					rq.statusCh <- *r
-				}
-
-				failMessage := `
-=============================================
-FAIL || Pipeline execution failed.
-=============================================
-`
-				rq.outputCh <- failMessage
+				rq.handleProcessingFailed(err, run)
 			}
 
 			close(rq.outputCh)
@@ -150,6 +122,19 @@ func (rq *RunQueue) processRun(
 	}
 	workdir := time.Now().UTC().Format(internal.RunDirLayout)
 
+	switch prd.OSType {
+	case "unix":
+		rq.pathSep = "/"
+		rq.mkdirCmd = "mkdir -p"
+		rq.chainOp = " && "
+	case "windows":
+		rq.pathSep = "\\"
+		rq.mkdirCmd = "mkdir"
+		rq.chainOp = " & "
+	default:
+		return errors.New("invalid OS type: " + prd.OSType)
+	}
+
 	// update run status to running
 	run.Status = store.StatusRunning
 	startedOn := time.Now().UTC()
@@ -183,7 +168,7 @@ func (rq *RunQueue) processRun(
 	defer client.Close()
 
 	// new session to clone repository
-	if err := cloneRepositoryOnAgent(
+	if err := rq.cloneRepositoryOnAgent(
 		ctx, client,
 		prd.Repository, prd.Workspace, workdir, r.Branch,
 	); err != nil {
@@ -299,27 +284,19 @@ func readPipelineScript(
 	return output, nil
 }
 
-func cloneRepositoryOnAgent(
+func (rq *RunQueue) cloneRepositoryOnAgent(
 	ctx context.Context,
 	client *ssh.Client,
 	repository, workspace, workdir, branch string,
 ) error {
-	if _, _, err := runCommand(
-		ctx,
-		client,
-		fmt.Sprintf("mkdir -p %s/%s", workspace, workdir),
-		5*time.Second,
-	); err != nil {
-		return err
-	}
-	if _, _, err := runCommandInWorkdir(
-		ctx,
-		client,
-		workspace,
-		workdir,
+	workingDir := strings.Join([]string{workspace, workdir}, rq.pathSep)
+	cmds := []string{
+		fmt.Sprintf("%s %s", rq.mkdirCmd, workingDir),
+		fmt.Sprintf("cd %s", workingDir),
 		fmt.Sprintf("git clone -b %s %s", branch, repository),
-		60*time.Second,
-	); err != nil {
+	}
+	cmd := strings.Join(cmds, rq.chainOp)
+	if _, _, err := runCommand(ctx, client, cmd, 60*time.Second); err != nil {
 		return err
 	}
 	return nil
@@ -373,12 +350,19 @@ func (rq *RunQueue) executePipelineStep(
 		return err
 	}
 
+	baseCmds := []string{
+		"cd " + workspace,
+		"cd " + workdir,
+		"cd " + repoDir,
+	}
+
 	doneCh := make(chan error, 1)
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	go func() {
 		defer cancel()
 		// start the step command
-		cmd := fmt.Sprintf("cd %s && cd %s && cd %s && %s", workspace, workdir, repoDir, script)
+		cmds := append(baseCmds, script)
+		cmd := strings.Join(cmds, rq.chainOp)
 		if err := sess.Start(cmd); err != nil {
 			doneCh <- errors.Join(fmt.Errorf("err starting command %s", cmd), err)
 			return
@@ -432,21 +416,6 @@ func (rq *RunQueue) executePipelineStep(
 	}
 }
 
-func runCommandInWorkdir(
-	ctx context.Context,
-	client *ssh.Client,
-	workspace, workdir, command string,
-	timeout time.Duration,
-) (string, string, error) {
-	cmd := fmt.Sprintf(
-		"cd %s && cd %s && %s",
-		workspace,
-		workdir,
-		command,
-	)
-	return runCommand(ctx, client, cmd, timeout)
-}
-
 func runCommand(
 	ctx context.Context,
 	client *ssh.Client,
@@ -495,4 +464,38 @@ func runCommand(
 			return stdout.String(), stderr.String(), nil
 		}
 	}
+}
+
+func (rq *RunQueue) handleProcessingFailed(err error, run *store.Run) {
+	endedOn := time.Now().UTC()
+	run.EndedOn = &endedOn
+	if _, ok := err.(RunCancelError); ok {
+		run.Status = store.StatusCancelled
+	} else {
+		run.Status = store.StatusFailed
+	}
+	if sqlErr := rq.pipelineService.UpdateRunEndedOn(
+		context.Background(),
+		run.RunID,
+		run.Status,
+		run.Artifacts,
+		run.EndedOn,
+	); sqlErr != nil {
+		log.Println("err updating run status to failed:", errors.Join(err, sqlErr))
+	}
+	log.Println("err processing pipeline:", err)
+	r, sqlErr := rq.pipelineService.GetRunByID(context.Background(), run.RunID)
+	if sqlErr != nil {
+		log.Println("err getting run by id", errors.Join(err, sqlErr))
+	} else {
+		run = r
+		rq.statusCh <- *r
+	}
+
+	failMessage := `
+=============================================
+FAIL || Pipeline execution failed.
+=============================================
+`
+	rq.outputCh <- failMessage
 }

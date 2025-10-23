@@ -167,7 +167,7 @@ func TestAgentsHandler_PatchAgent(t *testing.T) {
 			"UpdateAgent",
 			context.Background(),
 			agent.AgentID, agent.AgentCredentialID,
-			agent.Name, agent.Hostname, agent.Workspace, agent.Description,
+			agent.Name, agent.Hostname, agent.Workspace, agent.Description, agent.OSType,
 		).Return(nil)
 
 		formData := url.Values{}
@@ -176,6 +176,7 @@ func TestAgentsHandler_PatchAgent(t *testing.T) {
 		formData.Set("hostname", agent.Hostname)
 		formData.Set("workspace", agent.Workspace)
 		formData.Set("description", agent.Description)
+		formData.Set("os_type", agent.OSType)
 
 		e := echo.New()
 		req := httptest.NewRequest(
@@ -212,6 +213,7 @@ func TestAgentsHandler_PatchAgent(t *testing.T) {
 			agent.Hostname,
 			agent.Workspace,
 			agent.Description,
+			agent.OSType,
 		).Return(sql.ErrNoRows)
 
 		formData := url.Values{}
@@ -220,6 +222,7 @@ func TestAgentsHandler_PatchAgent(t *testing.T) {
 		formData.Set("hostname", agent.Hostname)
 		formData.Set("workspace", agent.Workspace)
 		formData.Set("description", agent.Description)
+		formData.Set("os_type", agent.OSType)
 
 		e := echo.New()
 		req := httptest.NewRequest(

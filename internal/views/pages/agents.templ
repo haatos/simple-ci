@@ -29,6 +29,15 @@ func agentCredentialIDSelectOptions(credentials []*store.Credential, credentialI
 	return options
 }
 
+func agentOSTypeSelectOptions() []components.SelectOption {
+	options := []components.SelectOption{
+		{Label: "Select a OS type...", Value: "", Selected: true},
+		{Label: "unix", Value: "unix"},
+		{Label: "windows", Value: "windows"},
+	}
+	return options
+}
+
 templ AgentsMain(agents []*store.Agent, credentials []*store.Credential) {
 	<main class="w-full p-4 border border-base-content/20 rounded-box space-y-4">
 		@components.Modal(
@@ -60,6 +69,12 @@ templ addNewAgentForm(credentials []*store.Credential) {
 			Options:  agentCredentialIDSelectOptions(credentials, 0),
 			Required: true,
 		})
+		@components.Select(components.SelectProps{
+			Label:    "OS Type*",
+			Name:     "os_type",
+			Options:  agentOSTypeSelectOptions(),
+			Required: true,
+		})
 		@components.Input(components.InputProps{
 			Label:       "Name*",
 			Name:        "name",
@@ -75,7 +90,7 @@ templ addNewAgentForm(credentials []*store.Credential) {
 			Required:      true,
 		})
 		@components.Input(components.InputProps{
-			Label:       "Workspace",
+			Label:       "Workspace*",
 			Name:        "workspace",
 			Placeholder: "Enter a workspace path...",
 			Required:    true,

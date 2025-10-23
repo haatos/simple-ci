@@ -24,6 +24,7 @@ type Pipeline struct {
 type PipelineRunData struct {
 	PipelineID        int64
 	AgentID           int64
+	OSType            string
 	CredentialID      int64
 	Repository        string
 	ScriptPath        string

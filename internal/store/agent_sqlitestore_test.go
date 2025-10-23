@@ -20,6 +20,7 @@ func TestAgentSQLiteStore_CreateAgent(t *testing.T) {
 		hostname := "localhost"
 		workspace := "/tmp"
 		description := "description"
+		osType := "unix"
 
 		// act
 		a, err := agentStore.CreateAgent(
@@ -29,6 +30,7 @@ func TestAgentSQLiteStore_CreateAgent(t *testing.T) {
 			hostname,
 			workspace,
 			description,
+			osType,
 		)
 
 		// assert
@@ -39,6 +41,7 @@ func TestAgentSQLiteStore_CreateAgent(t *testing.T) {
 		assert.Equal(t, hostname, a.Hostname)
 		assert.Equal(t, workspace, a.Workspace)
 		assert.Equal(t, description, a.Description)
+		assert.Equal(t, osType, a.OSType)
 	})
 }
 
@@ -84,6 +87,7 @@ func TestAgentSQLiteStore_UpdateAgent(t *testing.T) {
 		hostname := "updated.host"
 		workspace := "/updated/workspace"
 		description := "updated description"
+		osType := "windows"
 
 		// act
 		updateErr := agentStore.UpdateAgent(
@@ -94,6 +98,7 @@ func TestAgentSQLiteStore_UpdateAgent(t *testing.T) {
 			hostname,
 			workspace,
 			description,
+			osType,
 		)
 		a, readErr := agentStore.ReadAgentByID(context.Background(), agent.AgentID)
 
@@ -104,6 +109,7 @@ func TestAgentSQLiteStore_UpdateAgent(t *testing.T) {
 		assert.Equal(t, hostname, a.Hostname)
 		assert.Equal(t, workspace, a.Workspace)
 		assert.Equal(t, description, a.Description)
+		assert.Equal(t, osType, a.OSType)
 	})
 }
 
@@ -156,6 +162,7 @@ func createAgent(t *testing.T, c *Credential) *Agent {
 		"localhost",
 		fmt.Sprintf("/tmp%d", time.Now().UnixNano()),
 		"",
+		"unix",
 	)
 	assert.NoError(t, err)
 	return a

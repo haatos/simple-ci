@@ -63,6 +63,7 @@ func (h *AgentHandler) PostAgent(c echo.Context) error {
 		ap.Hostname,
 		ap.Workspace,
 		ap.Description,
+		ap.OSType,
 	)
 	if err != nil {
 		if isUniqueConstraintError(err) {
@@ -127,6 +128,7 @@ func (h *AgentHandler) PatchAgent(c echo.Context) error {
 		ap.Hostname,
 		ap.Workspace,
 		ap.Description,
+		ap.OSType,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return newError(c, err,

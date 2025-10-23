@@ -16,6 +16,7 @@ type AgentParams struct {
 	Hostname          string `form:"hostname"`
 	Workspace         string `form:"workspace"`
 	Description       string `form:"description"`
+	OSType            string `form:"os_type"`
 }
 
 type PipelineParams struct {

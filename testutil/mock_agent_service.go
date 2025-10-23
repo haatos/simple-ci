@@ -14,9 +14,9 @@ type MockAgentService struct {
 func (m *MockAgentService) CreateAgent(
 	ctx context.Context,
 	credentialID int64,
-	name, hostname, workspace, description string,
+	name, hostname, workspace, description, osType string,
 ) (*store.Agent, error) {
-	args := m.Called(ctx, name, hostname, workspace, description)
+	args := m.Called(ctx, name, hostname, workspace, description, osType)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -71,9 +71,9 @@ func (m *MockAgentService) UpdateAgent(
 	ctx context.Context,
 	id int64,
 	credentialID int64,
-	name, hostname, workspace, description string,
+	name, hostname, workspace, description, osType string,
 ) error {
-	args := m.Called(ctx, id, credentialID, name, hostname, workspace, description)
+	args := m.Called(ctx, id, credentialID, name, hostname, workspace, description, osType)
 	return args.Error(0)
 }
 

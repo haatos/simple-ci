@@ -248,10 +248,15 @@ func (s *UserService) InitializeSuperuser(ctx context.Context) {
 			log.Fatal(err)
 		}
 
+		hash, err := bcrypt.GenerateFromPassword(passwordBytes, bcrypt.DefaultCost)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		if _, err = s.userStore.CreateSuperuser(
 			ctx,
 			username,
-			string(passwordBytes),
+			string(hash),
 		); err != nil {
 			log.Fatal(err)
 		}

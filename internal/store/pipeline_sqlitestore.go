@@ -71,6 +71,7 @@ func (store *PipelineSQLiteStore) ReadPipelineRunData(
 		p.repository,
 		p.script_path,
 		a.agent_id,
+		a.os_type,
 		a.hostname,
 		a.workspace,
 		c.credential_id,
