@@ -99,14 +99,14 @@ templ deleteAPIKeyModal(ak *store.APIKey) {
 					Delete
 				</button>
 				<script>
-                            ((form) => {
-                                document.addEventListener("htmx:afterRequest", (evt) => {
-                                    if (evt.detail.elt === form && evt.detail.successful) {
-                                        form.closest("tr").remove()
-                                    }
-                                })
-                            })(document.currentScript.parentElement)
-                        </script>
+                    ((form) => {
+                        document.addEventListener("htmx:afterRequest", (evt) => {
+                            if (evt.detail.elt === form && evt.detail.successful) {
+                                form.closest("tr").remove()
+                            }
+                        })
+                    })(document.currentScript.parentElement)
+                </script>
 			</form>
 		</div>
 	}

@@ -58,13 +58,20 @@ templ PipelineUpdateForm(pipeline *store.Pipeline, agents []*store.Agent) {
 			Value:       pipeline.ScriptPath,
 			Required:    true,
 		})
-		<input name="pipeline_id" type="number" class="hidden" { templ.Attributes{"value": fmt.Sprintf("%d", pipeline.PipelineID)}... }/>
+		<input
+			name="pipeline_id"
+			type="number"
+			class="hidden"
+			{ templ.Attributes{"value": fmt.Sprintf("%d", pipeline.PipelineID)}... }
+		/>
 	</form>
 	<div class="max-w-md flex justify-between items-center mt-6">
 		@components.Modal(
 			components.ModalProps{
-				ID:    "delete_agent_modal",
-				Label: deletePipelineModalButton(templ.Attributes{"onclick": "delete_agent_modal.showModal()"}),
+				ID: "delete_agent_modal",
+				Label: deletePipelineModalButton(
+					templ.Attributes{"onclick": "delete_agent_modal.showModal()"},
+				),
 			}) {
 			<h2 class="text-xl font-bold">Confirm pipeline deletion</h2>
 			<p class="mt-8">Are you sure you want to delete this pipeline?</p>

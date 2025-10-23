@@ -110,14 +110,14 @@ templ cancelRunModal(r store.Run) {
 				<form method="dialog">
 					<button class="btn">Close</button>
 					<script data-id={ fmt.Sprintf("cancel_run_%d_btn", r.RunID) }>
-                                ((form, btnId) => {
-                                    document.addEventListener("htmx:afterRequest", (evt) => {
-                                        if (evt.detail.elt.id == btnId && evt.detail.successful) {
-                                            form.querySelector("button").click()
-                                        }
-                                    })
-                                })(document.currentScript.parentElement, document.currentScript.getAttribute("data-id"))
-                            </script>
+                        ((form, btnId) => {
+                            document.addEventListener("htmx:afterRequest", (evt) => {
+                                if (evt.detail.elt.id == btnId && evt.detail.successful) {
+                                    form.querySelector("button").click()
+                                }
+                            })
+                        })(document.currentScript.parentElement, document.currentScript.getAttribute("data-id"))
+                    </script>
 				</form>
 				<button
 					id={ fmt.Sprintf("cancel_run_%d_btn", r.RunID) }

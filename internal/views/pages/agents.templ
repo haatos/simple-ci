@@ -42,8 +42,10 @@ templ AgentsMain(agents []*store.Agent, credentials []*store.Credential) {
 	<main class="w-full p-4 border border-base-content/20 rounded-box space-y-4">
 		@components.Modal(
 			components.ModalProps{
-				ID:    "add_agent_modal",
-				Label: addAgentModalButton(templ.Attributes{"onclick": "add_agent_modal.showModal()"}, len(credentials)),
+				ID: "add_agent_modal",
+				Label: addAgentModalButton(
+					templ.Attributes{"onclick": "add_agent_modal.showModal()"}, len(credentials),
+				),
 			}) {
 			<h2 class="card-title">Add new agent</h2>
 			@addNewAgentForm(credentials)

@@ -17,8 +17,10 @@ templ UsersPageMain(users []*store.User) {
 		<div>
 			@components.Modal(
 				components.ModalProps{
-					ID:    "add_user_modal",
-					Label: addUserModalButton(templ.Attributes{"onclick": "add_user_modal.showModal()"}),
+					ID: "add_user_modal",
+					Label: addUserModalButton(
+						templ.Attributes{"onclick": "add_user_modal.showModal()"},
+					),
 				}) {
 				@addUserForm()
 			}

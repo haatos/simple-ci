@@ -33,8 +33,12 @@ templ PipelinesMain(pipelines []*store.Pipeline, agents []*store.Agent) {
 	<main class="w-full p-4 border border-base-content/20 rounded-box space-y-4">
 		@components.Modal(
 			components.ModalProps{
-				ID:    "add_pipeline_modal",
-				Label: addPipelineModalButton(templ.Attributes{"onclick": "add_pipeline_modal.showModal()"}, len(agents)),
+				ID: "add_pipeline_modal",
+				Label: addPipelineModalButton(
+					templ.Attributes{
+						"onclick": "add_pipeline_modal.showModal()",
+					}, len(agents),
+				),
 			}) {
 			<h2 class="card-title">Add new pipeline</h2>
 			@addNewPipelineForm(agents)
@@ -339,8 +343,12 @@ templ PipelineRunFullRow(r store.Run) {
 			@components.Tooltip(components.TooltipProps{Tip: "Cancel run"}) {
 				@components.Modal(
 					components.ModalProps{
-						ID:    fmt.Sprintf("cancel_run_%d_modal", r.RunID),
-						Label: cancelPipelineRunModalButton(r.EndedOn != nil && !r.EndedOn.IsZero(), templ.Attributes{"onclick": fmt.Sprintf("cancel_run_%d_modal.showModal()", r.RunID)}),
+						ID: fmt.Sprintf("cancel_run_%d_modal", r.RunID),
+						Label: cancelPipelineRunModalButton(
+							r.EndedOn != nil && !r.EndedOn.IsZero(),
+							templ.Attributes{
+								"onclick": fmt.Sprintf("cancel_run_%d_modal.showModal()", r.RunID),
+							}),
 					}) {
 					<h2 class="card-title">Cancel pipeline run ID { fmt.Sprintf("%d", r.RunID) }</h2>
 					<p>Are you sure you want to cancel the pipeline run?</p>
@@ -415,8 +423,10 @@ templ PipelineRunRow(r store.Run) {
 			@components.Tooltip(components.TooltipProps{Tip: "Cancel run"}) {
 				@components.Modal(
 					components.ModalProps{
-						ID:    fmt.Sprintf("cancel_run_%d_modal", r.RunID),
-						Label: cancelPipelineRunModalButton(r.EndedOn != nil && !r.EndedOn.IsZero(), templ.Attributes{"onclick": fmt.Sprintf("cancel_run_%d_modal.showModal()", r.RunID)}),
+						ID: fmt.Sprintf("cancel_run_%d_modal", r.RunID),
+						Label: cancelPipelineRunModalButton(
+							r.EndedOn != nil && !r.EndedOn.IsZero(),
+							templ.Attributes{"onclick": fmt.Sprintf("cancel_run_%d_modal.showModal()", r.RunID)}),
 					}) {
 					<h2 class="card-title">Cancel pipeline run ID { fmt.Sprintf("%d", r.RunID) }</h2>
 					<p>Are you sure you want to cancel the pipeline run?</p>
