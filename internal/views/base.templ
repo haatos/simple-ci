@@ -287,9 +287,10 @@ templ htmxScripts() {
                     // evt.detail.isError = false;
                 }
                 if (evt.detail.target == document.body) {
-                    let dialog = document.querySelector("dialog.modal");
+                    let dialog = document.querySelector("dialog.modal[open]");
+                    // dialog exists an is open
                     if (dialog != null) {
-                        evt.detail.target = htmx.find("dialog.modal");
+                        evt.detail.target = htmx.find("dialog.modal[open]");
                         evt.detail.swapOverride = "afterbegin";
                     }
                 }
