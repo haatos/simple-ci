@@ -77,6 +77,9 @@ func (rq *RunQueue) Run() {
 				rq.handleProcessingFailed(err, run)
 			}
 
+			<-rq.done
+
+			close(rq.done)
 			close(rq.outputCh)
 			close(rq.statusCh)
 			rq.cancelRunMap.RemoveCancel(run.RunID)
@@ -197,7 +200,7 @@ PASS || Executed pipeline steps successfully.
 `
 	rq.outputCh <- passMessage
 
-	// update run status and output
+	// update run status
 	run.Status = store.StatusPassed
 	run.EndedOn = util.AsPtr(time.Now().UTC())
 	if err := rq.pipelineService.UpdateRunEndedOn(
@@ -217,6 +220,7 @@ PASS || Executed pipeline steps successfully.
 
 	run = r
 	rq.statusCh <- *r
+	rq.done <- struct{}{}
 
 	return nil
 }
@@ -314,9 +318,9 @@ func (rq *RunQueue) executePipelineScript(
 	repoDir := repository[strings.LastIndex(repository, "/")+1:]
 	repoDir = strings.TrimSuffix(repoDir, ".git")
 	for _, stage := range ps.Stages {
-		rq.outputCh <- fmt.Sprintf("Executing pipeline stage '%s'\n", stage.Stage)
+		rq.outputCh <- fmt.Sprintf("    |    Executing pipeline stage '%s'\n", stage.Stage)
 		for _, step := range stage.Steps {
-			rq.outputCh <- fmt.Sprintf("  |  Executing pipeline step '%s'\n", step.Step)
+			rq.outputCh <- fmt.Sprintf("    |    |    Executing step '%s'\n", step.Step)
 			if err := rq.executePipelineStep(
 				ctx,
 				client,
@@ -328,8 +332,9 @@ func (rq *RunQueue) executePipelineScript(
 			); err != nil {
 				return err
 			}
-			rq.outputCh <- "  |  PASS"
+			rq.outputCh <- "    |    |    STEP PASSED\n"
 		}
+		rq.outputCh <- "    |    STAGE PASSED\n"
 	}
 	return nil
 }
@@ -502,4 +507,5 @@ FAIL || Pipeline execution failed.
 =============================================
 `
 	rq.outputCh <- failMessage
+	rq.done <- struct{}{}
 }
