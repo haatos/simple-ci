@@ -48,7 +48,7 @@ templ AgentsMain(agents []*store.Agent, credentials []*store.Credential) {
 			<h2 class="card-title">Add new agent</h2>
 			@addNewAgentForm(credentials)
 		}
-		<div id="agents-grid" class="grid grid-cols-2 gap-4">
+		<div id="agents-grid" class="grid grid-cols-1 xl:grid-cols-2 gap-4">
 			for _, a := range agents {
 				@AgentCard(a)
 			}
