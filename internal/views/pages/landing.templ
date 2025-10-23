@@ -5,7 +5,7 @@ import "github.com/haatos/simple-ci/internal/views"
 import "github.com/haatos/simple-ci/internal/store"
 
 templ IndexPage(user *store.User) {
-	@views.LandingLayout(user, views.LayoutProps{Title: "SimpleCI"}) {
+	@views.Layout(user, views.LayoutProps{Title: "SimpleCI"}) {
 		@IndexMain()
 	}
 }

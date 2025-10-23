@@ -5,7 +5,7 @@ import "github.com/haatos/simple-ci/internal/views/components"
 import "github.com/haatos/simple-ci/internal/store"
 
 templ ChangePasswordPage(user *store.User) {
-	@views.LandingLayout(user, views.LayoutProps{Title: "App"}) {
+	@views.Layout(user, views.LayoutProps{Title: "App"}) {
 		@ChangePasswordMain(user)
 	}
 }

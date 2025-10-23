@@ -9,34 +9,6 @@ type LayoutProps struct {
 	Title string
 }
 
-templ LandingLayout(user *store.User, props LayoutProps) {
-	<!DOCTYPE html>
-	<html lang="en">
-		@layoutHead(props.Title)
-		<body class="bg-light dark:bg-dark bg-cover bg-center bg-no-repeat">
-			<nav class="drawer">
-				<input id="drawer-toggle" type="checkbox" class="drawer-toggle"/>
-				<div class="drawer-content flex flex-col">
-					<!-- Navbar -->
-					@navbar(user)
-					<div class="w-full min-h-svh">
-						{ children... }
-					</div>
-				</div>
-				<div class="drawer-side">
-					<label
-						for="drawer-toggle"
-						aria-label="close sidebar"
-						class="drawer-overlay"
-					></label>
-				</div>
-			</nav>
-			@htmxScripts()
-			@htmxSendErrorDialog()
-		</body>
-	</html>
-}
-
 templ Layout(user *store.User, props LayoutProps) {
 	<!DOCTYPE html>
 	<html lang="en">
@@ -143,16 +115,7 @@ templ navbar(user *store.User) {
 templ navBarMenu(user *store.User) {
 	<div class="navbar-end">
 		<ul class="flex space-x-4 items-center pr-4">
-			if user == nil {
-				<li>
-					<a
-						{ NavigationLinkAttrs("/login")... }
-						class="btn btn-sm xl:btn-md btn-ghost"
-					>
-						Log in
-					</a>
-				</li>
-			} else {
+			if user != nil {
 				@components.Dropdown(components.DropdownProps{
 					Label: user.Username,
 					Items: []components.DropdownItem{
@@ -168,60 +131,64 @@ templ navBarMenu(user *store.User) {
 }
 
 templ sideMenu(user *store.User) {
-	<aside class="border border-base-content/20 rounded-box h-full min-h-72 max-h-80">
-		@components.Menu(components.MenuProps{
-			Class: "menu-lg w-52 h-full",
-		}) {
-			@components.MenuItem(
-				components.MenuItemProps{
-					Label: "Dashboard",
-					Icon:  DashboardIcon(),
-					Attrs: NavigationLinkAttrs("/app"),
-				})
-			@components.MenuItem(
-				components.MenuItemProps{
-					Label: "Credentials",
-					Icon:  CredentialsIcon(),
-					Attrs: NavigationLinkAttrs("/app/credentials"),
-				})
-			@components.MenuItem(
-				components.MenuItemProps{
-					Label: "Agents",
-					Icon:  AgentsIcon(),
-					Attrs: NavigationLinkAttrs("/app/agents"),
-				})
-			@components.MenuItem(
-				components.MenuItemProps{
-					Label: "Pipelines",
-					Icon:  PipelinesIcon(),
-					Attrs: NavigationLinkAttrs("/app/pipelines"),
-				})
-			if user.IsSuperuser() {
+	if user != nil {
+		<aside class="border border-base-content/20 rounded-box h-full min-h-72 max-h-80">
+			@components.Menu(components.MenuProps{
+				Class: "menu-lg w-52 h-full",
+			}) {
 				@components.MenuItem(
 					components.MenuItemProps{
-						Label: "Users",
-						Icon:  UsersIcon(),
-						Attrs: NavigationLinkAttrs("/app/users"),
-					},
-				)
-			}
-			if user.IsAdmin() {
-				@components.MenuItem(
-					components.MenuItemProps{
-						Label: "API Keys",
-						Icon:  APIKeysIcon(),
-						Attrs: NavigationLinkAttrs("/app/api-keys"),
-					},
-				)
-				@components.MenuItem(
-					components.MenuItemProps{
-						Label: "Config",
-						Icon:  ConfigIcon(),
-						Attrs: NavigationLinkAttrs("/app/config"),
+						Label: "Dashboard",
+						Icon:  DashboardIcon(),
+						Attrs: NavigationLinkAttrs("/app"),
 					})
+				@components.MenuItem(
+					components.MenuItemProps{
+						Label: "Credentials",
+						Icon:  CredentialsIcon(),
+						Attrs: NavigationLinkAttrs("/app/credentials"),
+					})
+				@components.MenuItem(
+					components.MenuItemProps{
+						Label: "Agents",
+						Icon:  AgentsIcon(),
+						Attrs: NavigationLinkAttrs("/app/agents"),
+					})
+				@components.MenuItem(
+					components.MenuItemProps{
+						Label: "Pipelines",
+						Icon:  PipelinesIcon(),
+						Attrs: NavigationLinkAttrs("/app/pipelines"),
+					})
+				if user.IsSuperuser() {
+					@components.MenuItem(
+						components.MenuItemProps{
+							Label: "Users",
+							Icon:  UsersIcon(),
+							Attrs: NavigationLinkAttrs("/app/users"),
+						},
+					)
+				}
+				if user.IsAdmin() {
+					@components.MenuItem(
+						components.MenuItemProps{
+							Label: "API Keys",
+							Icon:  APIKeysIcon(),
+							Attrs: NavigationLinkAttrs("/app/api-keys"),
+						},
+					)
+					@components.MenuItem(
+						components.MenuItemProps{
+							Label: "Config",
+							Icon:  ConfigIcon(),
+							Attrs: NavigationLinkAttrs("/app/config"),
+						})
+				}
 			}
-		}
-	</aside>
+		</aside>
+	} else {
+		<div></div>
+	}
 }
 
 templ DashboardIcon() {

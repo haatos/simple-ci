@@ -16,6 +16,7 @@ import (
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/types"
 	"github.com/haatos/simple-ci/internal/util"
+	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -117,8 +118,7 @@ func (rq *RunQueue) processRun(
 ) error {
 	prd, err := rq.pipelineService.GetPipelineRunData(ctx, run.RunPipelineID)
 	if err != nil {
-		rq.outputCh <- fmt.Sprintf("err getting pipeline/agent/credential: %+v\n", err)
-		return err
+		return fmt.Errorf("err getting pipeline/agent/credential data: %+w", err)
 	}
 	workdir := time.Now().UTC().Format(internal.RunDirLayout)
 
@@ -147,14 +147,12 @@ func (rq *RunQueue) processRun(
 		run.Status,
 		run.StartedOn,
 	); err != nil {
-		rq.outputCh <- "err updating run started on"
-		return err
+		return fmt.Errorf("err updating run started on: %+w", err)
 	}
 
 	r, err := rq.pipelineService.GetRunByID(context.Background(), run.RunID)
 	if err != nil {
-		rq.outputCh <- "err getting run by ID"
-		return err
+		return fmt.Errorf("err getting run by id: %+w", err)
 	}
 	run = r
 	rq.statusCh <- *r
@@ -172,14 +170,12 @@ func (rq *RunQueue) processRun(
 		ctx, client,
 		prd.Repository, prd.Workspace, workdir, r.Branch,
 	); err != nil {
-		rq.outputCh <- "err cloning repository on agent"
-		return err
+		return fmt.Errorf("err cloning repository on agent: %+w", err)
 	}
-	rq.outputCh <- fmt.Sprintf("Cloned repository %s\n", prd.Repository)
 
 	// base command: cd <workdir> &&
 	// new session to read pipeline script
-	pipelineYaml, err := readPipelineScript(
+	ps, err := rq.readPipelineScript(
 		client,
 		prd.Workspace,
 		workdir,
@@ -187,19 +183,10 @@ func (rq *RunQueue) processRun(
 		prd.ScriptPath,
 	)
 	if err != nil {
-		rq.outputCh <- "err reading pipeline script"
-		return err
+		return fmt.Errorf("err reading pipeline script: %+w", err)
 	}
-	ps := new(types.PipelineScript)
-	if err := yaml.Unmarshal(pipelineYaml, ps); err != nil {
-		rq.outputCh <- "err unmarshaling pipeline yaml"
-		return err
-	}
-
-	rq.outputCh <- "Parsed pipeline script. Starting pipeline execution...\n"
 
 	if err := rq.executePipelineScript(ctx, client, prd.Repository, prd.Workspace, workdir, ps); err != nil {
-		rq.outputCh <- fmt.Sprintf("err executing pipeline script: %+v\n", err)
 		return err
 	}
 
@@ -220,14 +207,12 @@ PASS || Executed pipeline steps successfully.
 		run.Artifacts,
 		run.EndedOn,
 	); err != nil {
-		rq.outputCh <- "err updating run ended on"
-		return err
+		return fmt.Errorf("err updating run ended on: %+w", err)
 	}
 
 	r, err = rq.pipelineService.GetRunByID(context.Background(), run.RunID)
 	if err != nil {
-		rq.outputCh <- "err getting run by id"
-		return err
+		return fmt.Errorf("err getting run by id: %+w", err)
 	}
 
 	run = r
@@ -265,23 +250,38 @@ func (rq *RunQueue) connectSSH(username, hostname string, privateKey []byte) (*s
 	return client, nil
 }
 
-func readPipelineScript(
+func (rq *RunQueue) readPipelineScript(
 	client *ssh.Client,
 	workspace, workdir, repository, scriptPath string,
-) ([]byte, error) {
+) (*types.PipelineScript, error) {
 	repoDir := repository[strings.LastIndex(repository, "/")+1:]
 	repoDir = strings.TrimSuffix(repoDir, ".git")
-	sess, err := client.NewSession()
+	sftpClient, err := sftp.NewClient(client)
 	if err != nil {
 		return nil, err
 	}
-	output, err := sess.Output(
-		fmt.Sprintf("cd %s && cd %s && cd %s && cat %s", workspace, workdir, repoDir, scriptPath),
-	)
+	parts := []string{workspace, workdir, repoDir, scriptPath}
+	remoteFile, err := sftpClient.Open(strings.Join(parts, rq.pathSep))
 	if err != nil {
 		return nil, err
 	}
-	return output, nil
+	remoteFileInfo, err := remoteFile.Stat()
+	if err != nil {
+		return nil, err
+	}
+	b := make([]byte, remoteFileInfo.Size())
+	if _, err := remoteFile.Read(b); err != nil {
+		return nil, err
+	}
+
+	ps := new(types.PipelineScript)
+	if err := yaml.Unmarshal(b, ps); err != nil {
+		return nil, fmt.Errorf("err unmarshaling pipeline yaml: %+w", err)
+	}
+
+	rq.outputCh <- "Parsed pipeline script. Starting pipeline execution...\n"
+
+	return ps, nil
 }
 
 func (rq *RunQueue) cloneRepositoryOnAgent(
@@ -299,6 +299,9 @@ func (rq *RunQueue) cloneRepositoryOnAgent(
 	if _, _, err := runCommand(ctx, client, cmd, 60*time.Second); err != nil {
 		return err
 	}
+
+	rq.outputCh <- fmt.Sprintf("Cloned repository %s\n", repository)
+
 	return nil
 }
 
@@ -325,6 +328,7 @@ func (rq *RunQueue) executePipelineScript(
 			); err != nil {
 				return err
 			}
+			rq.outputCh <- "  |  PASS"
 		}
 	}
 	return nil
