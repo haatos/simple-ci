@@ -72,6 +72,19 @@ Use environment variables or a .env file for setup:
 - `SIMPLECI_DB_PATH`: Path to SQLite DB (default: `./db.sqlite`).
 - `SIMPLECI_PORT`: HTTP listen port (default: `8080`).
 
+Configure maximum run queue size and authentication session validity in hours with a `config.json` file in the same directory as the application:
+
+```json
+{
+  "session_expiration_hours": 720,
+  "queue_size": 3
+}
+```
+
+This file is generated automatically at application start if it does not already exist.
+
+````
+
 For production, use a reverse proxy like Caddy or Nginx for HTTPS.
 
 #### Agent setup
@@ -123,7 +136,7 @@ stages:
       - step: Run build
         script: go build -o bin/simpleci cmd/simpleci/main.go
     artifacts: bin
-```
+````
 
 ## Contributing
 
