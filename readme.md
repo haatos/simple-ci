@@ -20,7 +20,7 @@ Key goals:
 - **Credential Management**: Store SSH private keys securely for authenticating to agents.
 - **Agent Orchestration**: Register remote machines as build agents; the controller uses SSH to connect to them to run pipelines.
 - **Pipeline Definition**: YAML-based pipelines with stages, steps, and artifacts are read from your git repository.
-- Scheduling: Schedule pipelines to run using _cron_ scheduling expressions for a specified branch.
+- **Scheduling**: Schedule pipelines to run using _cron_ scheduling expressions for a specified branch.
 - **Web Dashboard**: Intuitive UI powered by templ and HTMX for creating/editing resources and viewing build logs in real-time.
 - **Webhook Integration**: Trigger builds from GitHub/GitLab on push or PR events.
 - **Artifact Storage**: Download build artifacts directly from the UI.
@@ -29,7 +29,7 @@ Key goals:
 
 - **Backend**: Go (100% Go codebase for the controller and agent runner).
 - **Templating**: [github.com/a-h/templ](https://github.com/a-h/templ) for type-safe HTML components.
-- **Frontend Interactivity**: [HTMX](https://HTMX.org/) for AJAX-driven updates without a build step.
+- **Frontend Interactivity**: [HTMX](https://htmx.org/) for AJAX-driven updates without a build step.
 - **Database**: SQLite.
 - **Networking**: SSH for agent communication; HTTP/HTTPS for the web interface.
 
