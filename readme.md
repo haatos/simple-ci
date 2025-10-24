@@ -83,8 +83,6 @@ Configure maximum run queue size and authentication session validity in hours wi
 
 This file is generated automatically at application start if it does not already exist.
 
-````
-
 For production, use a reverse proxy like Caddy or Nginx for HTTPS.
 
 #### Agent setup
@@ -136,7 +134,7 @@ stages:
       - step: Run build
         script: go build -o bin/simpleci cmd/simpleci/main.go
     artifacts: bin
-````
+```
 
 ## Contributing
 
