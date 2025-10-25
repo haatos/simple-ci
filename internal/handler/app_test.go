@@ -11,19 +11,18 @@ import (
 
 	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/types"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestAppHandler_GetAppPage(t *testing.T) {
 	testcases := []struct {
-		role         types.Role
+		role         store.Role
 		contained    []string
 		notContained []string
 	}{
 		{
-			role: types.Operator,
+			role: store.Operator,
 			contained: []string{
 				"<html",
 				"<main",
@@ -38,7 +37,7 @@ func TestAppHandler_GetAppPage(t *testing.T) {
 			},
 		},
 		{
-			role: types.Admin,
+			role: store.Admin,
 			contained: []string{
 				"<html",
 				"<main",
@@ -53,7 +52,7 @@ func TestAppHandler_GetAppPage(t *testing.T) {
 			},
 		},
 		{
-			role: types.Superuser,
+			role: store.Superuser,
 			contained: []string{
 				"<html",
 				"<main",
@@ -104,7 +103,7 @@ func TestAppHandler_GetConfigPage(t *testing.T) {
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
-		c.Set("user", &store.User{UserID: 1, UserRoleID: types.Operator, Username: "testuser"})
+		c.Set("user", &store.User{UserID: 1, UserRoleID: store.Operator, Username: "testuser"})
 
 		// act
 		err := GetConfigPage(c)
@@ -127,7 +126,7 @@ func TestAppHandler_GetConfigPage(t *testing.T) {
 		req.Header.Set("hx-request", "true")
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
-		c.Set("user", &store.User{UserID: 1, UserRoleID: types.Operator, Username: "testuser"})
+		c.Set("user", &store.User{UserID: 1, UserRoleID: store.Operator, Username: "testuser"})
 
 		// act
 		err := GetConfigPage(c)

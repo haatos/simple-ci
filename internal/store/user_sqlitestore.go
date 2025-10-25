@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/haatos/simple-ci/internal"
-	"github.com/haatos/simple-ci/internal/types"
 	"github.com/haatos/simple-ci/internal/util"
 
 	"github.com/georgysavva/scany/v2/sqlscan"
@@ -23,7 +22,7 @@ func NewUserSQLiteStore(rdb, rwdb *sql.DB) *UserSQLiteStore {
 
 func (store *UserSQLiteStore) CreateUser(
 	ctx context.Context,
-	role types.Role,
+	role Role,
 	username string,
 	passwordHash string,
 ) (*User, error) {
@@ -58,7 +57,7 @@ func (store *UserSQLiteStore) CreateSuperuser(
 	passwordHash string,
 ) (*User, error) {
 	user := new(User)
-	user.UserRoleID = types.Superuser
+	user.UserRoleID = Superuser
 	user.Username = username
 	user.PasswordHash = passwordHash
 	user.PasswordChangedOn = util.AsPtr(time.Now().UTC())
@@ -153,7 +152,7 @@ func (store *UserSQLiteStore) DeleteUser(ctx context.Context, userID int64) erro
 func (store *UserSQLiteStore) UpdateUserRole(
 	ctx context.Context,
 	userID int64,
-	role types.Role,
+	role Role,
 ) error {
 	_, err := store.rwdb.ExecContext(
 		ctx,

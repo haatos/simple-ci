@@ -4,7 +4,6 @@ import "fmt"
 import "github.com/haatos/simple-ci/internal/views"
 import "github.com/haatos/simple-ci/internal/views/components"
 import "github.com/haatos/simple-ci/internal/store"
-import "github.com/haatos/simple-ci/internal/types"
 
 templ UsersPage(user *store.User, users []*store.User) {
 	@views.Layout(user, views.LayoutProps{Title: "App"}) {
@@ -100,7 +99,7 @@ templ usersTable(users []*store.User) {
 }
 
 func userRoleOptions() []components.SelectOption {
-	roles := types.ListNewUserRoles()
+	roles := store.ListNewUserRoles()
 	options := make([]components.SelectOption, len(roles)+1)
 	options[0] = components.SelectOption{
 		Label:    "Select a role...",
@@ -117,18 +116,18 @@ func userRoleOptions() []components.SelectOption {
 	return options
 }
 
-func userRowRoleOptions(userRole types.Role) []components.SelectOption {
-	roles := types.ListNewUserRoles()
+func userRowRoleOptions(userRole store.Role) []components.SelectOption {
+	roles := store.ListNewUserRoles()
 	options := make([]components.SelectOption, len(roles))
 	for i := range roles {
 		options[i] = components.SelectOption{
 			Label:    roles[i].ToString(),
 			Value:    fmt.Sprintf("%d", roles[i]),
 			Selected: roles[i] == userRole,
-			Disabled: userRole == types.Superuser,
+			Disabled: userRole == store.Superuser,
 		}
 	}
-	if userRole == types.Superuser {
+	if userRole == store.Superuser {
 		options = append(options, components.SelectOption{
 			Label:    userRole.ToString(),
 			Value:    fmt.Sprintf("%d", userRole),

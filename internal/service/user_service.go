@@ -13,7 +13,6 @@ import (
 
 	"github.com/haatos/simple-ci/internal/settings"
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/types"
 	"github.com/haatos/simple-ci/internal/util"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/term"
@@ -32,7 +31,7 @@ type UserServicer interface {
 	) (*store.User, error)
 	CreateUser(
 		ctx context.Context,
-		userRoleID types.Role,
+		userRoleID store.Role,
 		username, password string,
 	) (*store.User, error)
 	ListUsers(ctx context.Context) ([]*store.User, error)
@@ -53,7 +52,7 @@ type UserServicer interface {
 	) error
 	DeleteUser(ctx context.Context, u *store.User) error
 	ListSuperusers(ctx context.Context) ([]store.User, error)
-	UpdateUserRole(ctx context.Context, userID int64, role types.Role) error
+	UpdateUserRole(ctx context.Context, userID int64, role store.Role) error
 	InitializeSuperuser(context.Context)
 }
 
@@ -118,7 +117,7 @@ func (s *UserService) GetUserByUsernameAndPassword(
 
 func (s *UserService) CreateUser(
 	ctx context.Context,
-	userRoleID types.Role,
+	userRoleID store.Role,
 	username, password string,
 ) (*store.User, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -225,7 +224,7 @@ func (s *UserService) ListSuperusers(ctx context.Context) ([]store.User, error) 
 	return users, nil
 }
 
-func (s *UserService) UpdateUserRole(ctx context.Context, userID int64, role types.Role) error {
+func (s *UserService) UpdateUserRole(ctx context.Context, userID int64, role store.Role) error {
 	return s.userStore.UpdateUserRole(ctx, userID, role)
 }
 

@@ -14,7 +14,6 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/types"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -257,7 +256,7 @@ func (rq *RunQueue) connectSSH(username, hostname string, privateKey []byte) (*s
 func (rq *RunQueue) readPipelineScript(
 	client *ssh.Client,
 	workspace, workdir, repository, scriptPath string,
-) (*types.PipelineScript, error) {
+) (*PipelineScript, error) {
 	repoDir := repository[strings.LastIndex(repository, "/")+1:]
 	repoDir = strings.TrimSuffix(repoDir, ".git")
 	sftpClient, err := sftp.NewClient(client)
@@ -278,7 +277,7 @@ func (rq *RunQueue) readPipelineScript(
 		return nil, err
 	}
 
-	ps := new(types.PipelineScript)
+	ps := new(PipelineScript)
 	if err := yaml.Unmarshal(b, ps); err != nil {
 		return nil, fmt.Errorf("err unmarshaling pipeline yaml: %+w", err)
 	}
@@ -313,7 +312,7 @@ func (rq *RunQueue) executePipelineScript(
 	ctx context.Context,
 	client *ssh.Client,
 	repository, workspace, workdir string,
-	ps *types.PipelineScript,
+	ps *PipelineScript,
 ) error {
 	repoDir := repository[strings.LastIndex(repository, "/")+1:]
 	repoDir = strings.TrimSuffix(repoDir, ".git")

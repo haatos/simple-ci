@@ -13,7 +13,6 @@ import (
 	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/settings"
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/types"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -95,25 +94,25 @@ func main() {
 	app.GET("", handler.GetAppPage)
 
 	app.GET("/user", userH.GetProfilePage)
-	app.GET("/users", userH.GetUsers, handler.RoleMiddleware(types.Admin))
-	app.POST("/users", userH.PostUsers, handler.RoleMiddleware(types.Admin))
-	app.DELETE("/users/:user_id", userH.DeleteUser, handler.RoleMiddleware(types.Admin))
+	app.GET("/users", userH.GetUsers, handler.RoleMiddleware(store.Admin))
+	app.POST("/users", userH.PostUsers, handler.RoleMiddleware(store.Admin))
+	app.DELETE("/users/:user_id", userH.DeleteUser, handler.RoleMiddleware(store.Admin))
 	app.PATCH("/users/:user_id/change-password", userH.PatchChangeUserPassword)
 	app.PATCH("/users/:user_id/password", userH.PatchUserPassword)
 	app.PATCH(
 		"/users/:user_id/reset-password",
 		userH.PatchResetUserPassword,
-		handler.RoleMiddleware(types.Admin),
+		handler.RoleMiddleware(store.Admin),
 	)
-	app.PATCH("/users/:user_id/role", userH.PatchUserRole, handler.RoleMiddleware(types.Superuser))
+	app.PATCH("/users/:user_id/role", userH.PatchUserRole, handler.RoleMiddleware(store.Superuser))
 
 	app.GET("/credentials", credH.GetCredentialsPage)
-	app.POST("/credentials", credH.PostCredentials, handler.RoleMiddleware(types.Admin))
-	app.PATCH("/credentials", credH.PatchCredential, handler.RoleMiddleware(types.Admin))
+	app.POST("/credentials", credH.PostCredentials, handler.RoleMiddleware(store.Admin))
+	app.PATCH("/credentials", credH.PatchCredential, handler.RoleMiddleware(store.Admin))
 	app.DELETE(
 		"/credentials/:credential_id",
 		credH.DeleteCredential,
-		handler.RoleMiddleware(types.Admin),
+		handler.RoleMiddleware(store.Admin),
 	)
 	app.GET("/credentials/:credential_id", credH.GetCredentialPage)
 
@@ -143,12 +142,12 @@ func main() {
 	app.GET("/pipelines/:pipeline_id/runs/:run_id/artifacts", pipelineH.GetPipelineRunArtifacts)
 	app.POST("/pipelines/:pipeline_id/runs/:run_id/cancel", pipelineH.PostCancelPipelineRun)
 
-	app.GET("/api-keys", apiKeyH.GetAPIKeysPage, handler.RoleMiddleware(types.Admin))
-	app.POST("/api-keys", apiKeyH.PostAPIKey, handler.RoleMiddleware(types.Admin))
-	app.DELETE("/api-keys/:id", apiKeyH.DeleteAPIKey, handler.RoleMiddleware(types.Admin))
+	app.GET("/api-keys", apiKeyH.GetAPIKeysPage, handler.RoleMiddleware(store.Admin))
+	app.POST("/api-keys", apiKeyH.PostAPIKey, handler.RoleMiddleware(store.Admin))
+	app.DELETE("/api-keys/:id", apiKeyH.DeleteAPIKey, handler.RoleMiddleware(store.Admin))
 
-	app.GET("/config", handler.GetConfigPage, handler.RoleMiddleware(types.Admin))
-	app.POST("/config", handler.PostConfig, handler.RoleMiddleware(types.Admin))
+	app.GET("/config", handler.GetConfigPage, handler.RoleMiddleware(store.Admin))
+	app.POST("/config", handler.PostConfig, handler.RoleMiddleware(store.Admin))
 
 	internal.GracefulShutdown(e, settings.Settings.Port)
 }

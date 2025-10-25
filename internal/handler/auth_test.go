@@ -15,7 +15,6 @@ import (
 	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/settings"
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/types"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/haatos/simple-ci/testutil"
 	"github.com/labstack/echo/v4"
@@ -85,7 +84,7 @@ func TestAuthHandler_GetLoginPage(t *testing.T) {
 		c := e.NewContext(req, rec)
 		user := &store.User{
 			UserID:       1,
-			UserRoleID:   types.Operator,
+			UserRoleID:   store.Operator,
 			Username:     "username",
 			PasswordHash: "passwordhash",
 		}
@@ -112,7 +111,7 @@ func TestAuthHandler_PostLogin(t *testing.T) {
 		mockService := new(testutil.MockUserService)
 		expectedUser := &store.User{
 			UserID:            1,
-			UserRoleID:        types.Operator,
+			UserRoleID:        store.Operator,
 			Username:          "testuser",
 			PasswordHash:      "testuserpasswordhash",
 			PasswordChangedOn: util.AsPtr(time.Now().UTC()),
@@ -250,7 +249,7 @@ func TestAuthHandler_PostLogin(t *testing.T) {
 		mockService := new(testutil.MockUserService)
 		expectedUser := &store.User{
 			UserID:       1,
-			UserRoleID:   types.Operator,
+			UserRoleID:   store.Operator,
 			Username:     "testuser",
 			PasswordHash: "testuserpasswordhash",
 		}
@@ -346,7 +345,7 @@ func TestAuthHandler_GetSetPasswordPage(t *testing.T) {
 		c := e.NewContext(req, rec)
 		user := &store.User{
 			UserID:            1,
-			UserRoleID:        types.Operator,
+			UserRoleID:        store.Operator,
 			Username:          "testuser",
 			PasswordHash:      "password",
 			PasswordChangedOn: util.AsPtr(time.Now().UTC().Add(-30 * time.Second)),
@@ -398,7 +397,7 @@ func TestAuthHandler_PostSetPassword(t *testing.T) {
 		c := e.NewContext(req, rec)
 		user := &store.User{
 			UserID:            userID,
-			UserRoleID:        types.Operator,
+			UserRoleID:        store.Operator,
 			Username:          username,
 			PasswordHash:      "passwordhash",
 			PasswordChangedOn: util.AsPtr(time.Now().UTC().Add(-30 * time.Second)),
@@ -449,7 +448,7 @@ func TestAuthHandler_PostSetPassword(t *testing.T) {
 		c.Request().Header.Set("hx-request", "true")
 		user := &store.User{
 			UserID:            userID,
-			UserRoleID:        types.Operator,
+			UserRoleID:        store.Operator,
 			Username:          "signedinuser",
 			PasswordHash:      "passwordhash",
 			PasswordChangedOn: util.AsPtr(time.Now().UTC().Add(-30 * time.Second)),
@@ -499,7 +498,7 @@ func TestAuthHandler_PostSetPassword(t *testing.T) {
 		c.Request().Header.Set("hx-request", "true")
 		user := &store.User{
 			UserID:            userID,
-			UserRoleID:        types.Operator,
+			UserRoleID:        store.Operator,
 			Username:          username,
 			PasswordHash:      "passwordhash",
 			PasswordChangedOn: util.AsPtr(time.Now().UTC().Add(-30 * time.Second)),

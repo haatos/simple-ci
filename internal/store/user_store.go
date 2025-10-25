@@ -4,14 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"time"
-
-	"github.com/haatos/simple-ci/internal/types"
 )
 
 type User struct {
-	UserID            int64      `json:"-"`
-	UserRoleID        types.Role `json:"user_role_id"`
-	Username          string     `json:"username"`
+	UserID            int64  `json:"-"`
+	UserRoleID        Role   `json:"user_role_id"`
+	Username          string `json:"username"`
 	PasswordHash      string
 	PasswordChangedOn *time.Time `json:"password_changed_on"`
 
@@ -20,11 +18,11 @@ type User struct {
 }
 
 func (u *User) IsAdmin() bool {
-	return u != nil && (u.UserRoleID == types.Admin || u.UserRoleID == types.Superuser)
+	return u != nil && (u.UserRoleID == Admin || u.UserRoleID == Superuser)
 }
 
 func (u *User) IsSuperuser() bool {
-	return u != nil && u.UserRoleID == types.Superuser
+	return u != nil && u.UserRoleID == Superuser
 }
 
 type AuthSession struct {
@@ -34,12 +32,12 @@ type AuthSession struct {
 }
 
 type UserStore interface {
-	CreateUser(context.Context, types.Role, string, string) (*User, error)
+	CreateUser(context.Context, Role, string, string) (*User, error)
 	CreateSuperuser(context.Context, string, string) (*User, error)
 	ReadUserByID(context.Context, int64) (*User, error)
 	ReadUserByUsername(context.Context, string) (*User, error)
 	ReadUserBySessionID(context.Context, string) (*User, error)
-	UpdateUserRole(context.Context, int64, types.Role) error
+	UpdateUserRole(context.Context, int64, Role) error
 	UpdateUserPassword(context.Context, int64, string) error
 	UpdateUserPasswordChangedOn(context.Context, int64, *time.Time) error
 	DeleteUser(context.Context, int64) error

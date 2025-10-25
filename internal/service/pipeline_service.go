@@ -19,7 +19,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/types"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -373,7 +372,7 @@ func (s *PipelineService) CollectPipelineRunArtifacts(
 		return "", err
 	}
 
-	ps := new(types.PipelineScript)
+	ps := new(PipelineScript)
 	if err := yaml.Unmarshal(output, ps); err != nil {
 		return "", err
 	}

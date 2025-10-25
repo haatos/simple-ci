@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/types"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -24,7 +23,7 @@ type MockUserStore struct {
 
 func (m *MockUserStore) CreateUser(
 	ctx context.Context,
-	role types.Role,
+	role store.Role,
 	username string,
 	password string,
 ) (*store.User, error) {
@@ -79,7 +78,7 @@ func (m *MockUserStore) ReadUserBySessionID(
 func (m *MockUserStore) UpdateUserRole(
 	ctx context.Context,
 	userID int64,
-	role types.Role,
+	role store.Role,
 ) error {
 	args := m.Called(ctx, userID, role)
 	return args.Error(0)
@@ -139,7 +138,7 @@ func (m *MockUserStore) DeleteAuthSessionsByUserID(ctx context.Context, userID i
 func TestUserService_GetUserByID(t *testing.T) {
 	t.Run("success - user is found", func(t *testing.T) {
 		// arrange
-		expectedUser := generateUser(types.Operator, nil, nil)
+		expectedUser := generateUser(store.Operator, nil, nil)
 		mockStore := new(MockUserStore)
 		mockStore.On(
 			"ReadUserByID",
@@ -163,7 +162,7 @@ func TestUserService_GetUserByID(t *testing.T) {
 func TestUserService_GetUserByUsername(t *testing.T) {
 	t.Run("success - user is found", func(t *testing.T) {
 		// arrange
-		expectedUser := generateUser(types.Operator, nil, nil)
+		expectedUser := generateUser(store.Operator, nil, nil)
 		password := "testuserpassword"
 		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		expectedUser.PasswordHash = string(hash)
@@ -218,7 +217,7 @@ func TestUserService_GetUserBySessionID(t *testing.T) {
 	t.Run("success - user is found", func(t *testing.T) {
 		// arrange
 		expectedUser := generateUser(
-			types.Operator,
+			store.Operator,
 			nil,
 			util.AsPtr(time.Now().UTC().Add(30*time.Second)),
 		)
@@ -251,11 +250,11 @@ func TestUserService_UpdateUserRole(t *testing.T) {
 		// arrange
 		var userID int64 = 1
 		mockStore := new(MockUserStore)
-		mockStore.On("UpdateUserRole", context.Background(), userID, types.Admin).Return(nil)
+		mockStore.On("UpdateUserRole", context.Background(), userID, store.Admin).Return(nil)
 		userService := NewUserService(mockStore)
 
 		// act
-		err := userService.UpdateUserRole(context.Background(), userID, types.Admin)
+		err := userService.UpdateUserRole(context.Background(), userID, store.Admin)
 
 		// assert
 		assert.NoError(t, err)
@@ -283,8 +282,8 @@ func TestUserService_ListUsers(t *testing.T) {
 		// arrange
 		mockStore := new(MockUserStore)
 		expectedUsers := []*store.User{
-			generateUser(types.Operator, nil, nil),
-			generateUser(types.Admin, nil, nil),
+			generateUser(store.Operator, nil, nil),
+			generateUser(store.Admin, nil, nil),
 		}
 		mockStore.On("ListUsers", context.Background()).Return(expectedUsers, nil)
 		userService := NewUserService(mockStore)
@@ -303,9 +302,9 @@ func TestUserService_ListSuperusers(t *testing.T) {
 		// arrange
 		mockStore := new(MockUserStore)
 		expectedUsers := []store.User{
-			*generateUser(types.Operator, nil, nil),
-			*generateUser(types.Admin, nil, nil),
-			*generateUser(types.Superuser, nil, nil),
+			*generateUser(store.Operator, nil, nil),
+			*generateUser(store.Admin, nil, nil),
+			*generateUser(store.Superuser, nil, nil),
 		}
 		mockStore.On(
 			"ListSuperusers",
@@ -323,7 +322,7 @@ func TestUserService_ListSuperusers(t *testing.T) {
 }
 
 func generateUser(
-	role types.Role,
+	role store.Role,
 	passwordChangedOn *time.Time,
 	sessionExpires *time.Time,
 ) *store.User {

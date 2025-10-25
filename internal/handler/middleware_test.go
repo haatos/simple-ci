@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/haatos/simple-ci/internal/types"
+	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
@@ -15,7 +15,7 @@ import (
 func TestMiddleware_AlreadyLoggedIn(t *testing.T) {
 	t.Run("user is redirected to app page", func(t *testing.T) {
 		// arrange
-		user := generateUser(types.Admin, nil, util.AsPtr(time.Now().UTC().Add(30*time.Second)))
+		user := generateUser(store.Admin, nil, util.AsPtr(time.Now().UTC().Add(30*time.Second)))
 		user.PasswordChangedOn = util.AsPtr(time.Now().UTC().Add(-30 * time.Second))
 		req := httptest.NewRequest(http.MethodPost, "/", nil)
 		rec := httptest.NewRecorder()
@@ -54,7 +54,7 @@ func TestMiddleware_AlreadyLoggedIn(t *testing.T) {
 	})
 	t.Run("user has not changed password", func(t *testing.T) {
 		// arrange
-		user := generateUser(types.Admin, nil, util.AsPtr(time.Now().UTC().Add(30*time.Second)))
+		user := generateUser(store.Admin, nil, util.AsPtr(time.Now().UTC().Add(30*time.Second)))
 		req := httptest.NewRequest(http.MethodPost, "/", nil)
 		rec := httptest.NewRecorder()
 		h := AlreadyLoggedIn(func(c echo.Context) error {
@@ -77,7 +77,7 @@ func TestMiddleware_AlreadyLoggedIn(t *testing.T) {
 func TestMiddleware_IsAuthenticated(t *testing.T) {
 	t.Run("user is authenticated", func(t *testing.T) {
 		// arrange
-		user := generateUser(types.Admin, nil, util.AsPtr(time.Now().UTC().Add(30*time.Second)))
+		user := generateUser(store.Admin, nil, util.AsPtr(time.Now().UTC().Add(30*time.Second)))
 		user.PasswordChangedOn = util.AsPtr(time.Now().UTC().Add(-30 * time.Second))
 		req := httptest.NewRequest(http.MethodPost, "/", nil)
 		rec := httptest.NewRecorder()
@@ -116,7 +116,7 @@ func TestMiddleware_IsAuthenticated(t *testing.T) {
 	})
 	t.Run("user has not changed password", func(t *testing.T) {
 		// arrange
-		user := generateUser(types.Admin, nil, util.AsPtr(time.Now().UTC().Add(30*time.Second)))
+		user := generateUser(store.Admin, nil, util.AsPtr(time.Now().UTC().Add(30*time.Second)))
 		req := httptest.NewRequest(http.MethodPost, "/", nil)
 		rec := httptest.NewRecorder()
 		h := IsAuthenticated(func(c echo.Context) error {
@@ -139,8 +139,8 @@ func TestMiddleware_IsAuthenticated(t *testing.T) {
 func TestMiddleware_RoleMiddlware(t *testing.T) {
 	t.Run("success - user has sufficient role", func(t *testing.T) {
 		// arrange
-		userRole := types.Admin
-		requiredRole := types.Admin
+		userRole := store.Admin
+		requiredRole := store.Admin
 		user := generateUser(userRole, nil, util.AsPtr(time.Now().UTC().Add(30*time.Second)))
 		req := httptest.NewRequest(http.MethodPost, "/", nil)
 		rec := httptest.NewRecorder()
@@ -161,8 +161,8 @@ func TestMiddleware_RoleMiddlware(t *testing.T) {
 	})
 	t.Run("failure - user role insufficient", func(t *testing.T) {
 		// arrange
-		userRole := types.Operator
-		requiredRole := types.Superuser
+		userRole := store.Operator
+		requiredRole := store.Superuser
 		user := generateUser(userRole, nil, util.AsPtr(time.Now().UTC().Add(30*time.Second)))
 		req := httptest.NewRequest(http.MethodPost, "/", nil)
 		rec := httptest.NewRecorder()

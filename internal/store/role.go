@@ -1,4 +1,4 @@
-package types
+package store
 
 const (
 	Operator  Role = 10

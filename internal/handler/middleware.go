@@ -3,8 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/haatos/simple-ci/internal/types"
-
+	"github.com/haatos/simple-ci/internal/store"
 	"github.com/labstack/echo/v4"
 )
 
@@ -32,7 +31,7 @@ func IsAuthenticated(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func RoleMiddleware(requiredRole types.Role) func(next echo.HandlerFunc) echo.HandlerFunc {
+func RoleMiddleware(requiredRole store.Role) func(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			u := getCtxUser(c)

@@ -1,6 +1,6 @@
 package handler
 
-import "github.com/haatos/simple-ci/internal/types"
+import "github.com/haatos/simple-ci/internal/store"
 
 type CredentialParams struct {
 	CredentialID  int64  `form:"credential_id"   param:"credential_id"`
@@ -44,7 +44,7 @@ type ListRunsParams struct {
 
 type PatchUserParams struct {
 	UserID int64      `param:"user_id"`
-	RoleID types.Role `                form:"role_id"`
+	RoleID store.Role `                form:"role_id"`
 }
 
 type PatchUserPasswordParams struct {
@@ -56,7 +56,7 @@ type PatchUserPasswordParams struct {
 
 type UserParams struct {
 	UserID          int64      `param:"user_id"`
-	UserRoleID      types.Role `                form:"user_role_id"`
+	UserRoleID      store.Role `                form:"user_role_id"`
 	Username        string     `                form:"username"`
 	Password        string     `                form:"password"`
 	PasswordConfirm string     `                form:"password_confirm"`

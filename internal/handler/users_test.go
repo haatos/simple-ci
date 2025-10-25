@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/types"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/haatos/simple-ci/testutil"
 	"github.com/labstack/echo/v4"
@@ -50,7 +49,7 @@ func TestUsersHandler_ListUsers(t *testing.T) {
 	t.Run("success - users found on page", func(t *testing.T) {
 		// arrange
 		user := generateUser(
-			types.Admin,
+			store.Admin,
 			util.AsPtr(time.Now().UTC()),
 			util.AsPtr(time.Now().UTC().Add(30*time.Second)),
 		)
@@ -77,7 +76,7 @@ func TestUsersHandler_ListUsers(t *testing.T) {
 	t.Run("success - users found on main element", func(t *testing.T) {
 		// arrange
 		user := generateUser(
-			types.Admin,
+			store.Admin,
 			util.AsPtr(time.Now().UTC()),
 			util.AsPtr(time.Now().UTC().Add(30*time.Second)),
 		)
@@ -107,7 +106,7 @@ func TestUsersHandler_ListUsers(t *testing.T) {
 func TestUsersHandler_PostUsers(t *testing.T) {
 	t.Run("success - user created", func(t *testing.T) {
 		expectedUser := generateUser(
-			types.Admin,
+			store.Admin,
 			util.AsPtr(time.Now().UTC()),
 			util.AsPtr(time.Now().UTC().Add(30*time.Second)),
 		)
@@ -121,7 +120,7 @@ func TestUsersHandler_PostUsers(t *testing.T) {
 		).Return(expectedUser, nil)
 
 		formData := url.Values{}
-		formData.Set("user_role_id", fmt.Sprintf("%d", types.Admin))
+		formData.Set("user_role_id", fmt.Sprintf("%d", store.Admin))
 		formData.Set("username", expectedUser.Username)
 		formData.Set("password", testUserPassword)
 		req := httptest.NewRequest(
@@ -144,18 +143,18 @@ func TestUsersHandler_PostUsers(t *testing.T) {
 		assert.Contains(t, body, fmt.Sprintf("<td>%s</td>", expectedUser.Username))
 	})
 	t.Run("failure - username taken", func(t *testing.T) {
-		user := generateUser(types.Operator, nil, nil)
+		user := generateUser(store.Operator, nil, nil)
 		mockService := new(testutil.MockUserService)
 		mockService.On(
 			"CreateUser",
 			context.Background(),
-			types.Admin,
+			store.Admin,
 			user.Username,
 			testUserPassword,
 		).Return(nil, uniqueConstraintError)
 
 		formData := url.Values{}
-		formData.Set("user_role_id", fmt.Sprintf("%d", types.Admin))
+		formData.Set("user_role_id", fmt.Sprintf("%d", store.Admin))
 		formData.Set("username", user.Username)
 		formData.Set("password", testUserPassword)
 
@@ -183,7 +182,7 @@ func TestUsersHandler_PostUsers(t *testing.T) {
 }
 
 func generateUser(
-	role types.Role,
+	role store.Role,
 	passwordChangedOn *time.Time,
 	sessionExpires *time.Time,
 ) *store.User {

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/haatos/simple-ci/internal"
-	"github.com/haatos/simple-ci/internal/types"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/bcrypt"
@@ -55,7 +54,7 @@ func TestCreateUser(t *testing.T) {
 	t.Run("success - user is stored", func(t *testing.T) {
 		// arrange
 		hash, _ := bcrypt.GenerateFromPassword([]byte("testpassword"), bcrypt.DefaultCost)
-		role := types.Admin
+		role := Admin
 		username := "testadmin"
 		sshPrivateKeyHash := string(hash)
 
@@ -79,7 +78,7 @@ func TestCreateUser(t *testing.T) {
 	t.Run("failure - username already exists", func(t *testing.T) {
 		// arrange
 		hash, _ := bcrypt.GenerateFromPassword([]byte("testpassword"), bcrypt.DefaultCost)
-		role := types.Operator
+		role := Operator
 		username := "existingoperator"
 		sshPrivateKeyHash := string(hash)
 		_, err := userStore.CreateUser(
@@ -118,7 +117,7 @@ func TestCreateSuperuser(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, u)
 		assert.NotEqual(t, 0, u.UserID)
-		assert.Equal(t, types.Superuser, u.UserRoleID)
+		assert.Equal(t, Superuser, u.UserRoleID)
 		assert.Equal(t, username, u.Username)
 		assert.Equal(t, sshPrivateKeyHash, u.PasswordHash)
 		assert.NotNil(t, u.PasswordChangedOn)
@@ -127,7 +126,7 @@ func TestCreateSuperuser(t *testing.T) {
 	t.Run("failure - username already exists", func(t *testing.T) {
 		// arrange
 		hash, _ := bcrypt.GenerateFromPassword([]byte("testpassword"), bcrypt.DefaultCost)
-		role := types.Superuser
+		role := Superuser
 		username := "existingsuperuser"
 		sshPrivateKeyHash := string(hash)
 		_, err := userStore.CreateUser(
@@ -151,7 +150,7 @@ func TestCreateSuperuser(t *testing.T) {
 func TestUserSQLiteStore_ReadUserByID(t *testing.T) {
 	t.Run("success - user is found", func(t *testing.T) {
 		// arrange
-		expectedUser := createUser(t, types.Operator)
+		expectedUser := createUser(t, Operator)
 
 		// act
 		u, err := userStore.ReadUserByID(context.Background(), expectedUser.UserID)
@@ -180,7 +179,7 @@ func TestUserSQLiteStore_ReadUserByID(t *testing.T) {
 func TestUserSQLiteStore_ReadUserByUsername(t *testing.T) {
 	t.Run("success - user is found", func(t *testing.T) {
 		// arrange
-		expectedUser := createUser(t, types.Operator)
+		expectedUser := createUser(t, Operator)
 
 		// act
 		u, err := userStore.ReadUserByUsername(context.Background(), expectedUser.Username)
@@ -209,7 +208,7 @@ func TestUserSQLiteStore_ReadUserByUsername(t *testing.T) {
 func TestUserSQLiteStore_DeleteUser(t *testing.T) {
 	t.Run("success - user is deleted", func(t *testing.T) {
 		// arrange
-		expectedUser := createUser(t, types.Operator)
+		expectedUser := createUser(t, Operator)
 
 		// act
 		err := userStore.DeleteUser(context.Background(), expectedUser.UserID)
@@ -237,7 +236,7 @@ func TestUserSQLiteStore_DeleteUser(t *testing.T) {
 func TestUserSQLiteStore_CreateAuthSession(t *testing.T) {
 	t.Run("success - auth session created", func(t *testing.T) {
 		// arrange
-		expectedUser := createUser(t, types.Operator)
+		expectedUser := createUser(t, Operator)
 		sessionID := "testsession"
 		sessionUserID := expectedUser.UserID
 		sessionExpires := time.Now().UTC().Add(30 * time.Second)
@@ -283,13 +282,13 @@ func TestUserSQLiteStore_CreateAuthSession(t *testing.T) {
 func TestUserSQLiteStore_UpdateUserRole(t *testing.T) {
 	t.Run("success - user role updates", func(t *testing.T) {
 		// arrange
-		expectedUser := createUser(t, types.Operator)
+		expectedUser := createUser(t, Operator)
 
 		// act
 		updateErr := userStore.UpdateUserRole(
 			context.Background(),
 			expectedUser.UserID,
-			types.Admin,
+			Admin,
 		)
 		u, readErr := userStore.ReadUserByID(context.Background(), expectedUser.UserID)
 
@@ -297,17 +296,17 @@ func TestUserSQLiteStore_UpdateUserRole(t *testing.T) {
 		assert.NoError(t, updateErr)
 		assert.NoError(t, readErr)
 		assert.NotNil(t, u)
-		assert.Equal(t, types.Admin, u.UserRoleID)
+		assert.Equal(t, Admin, u.UserRoleID)
 	})
 	t.Run("failure - user role does not exist", func(t *testing.T) {
 		// arrange
-		expectedUser := createUser(t, types.Operator)
+		expectedUser := createUser(t, Operator)
 
 		// act
 		updateErr := userStore.UpdateUserRole(
 			context.Background(),
 			expectedUser.UserID,
-			types.Role(123_123_123),
+			Role(123_123_123),
 		)
 
 		// assert
@@ -318,7 +317,7 @@ func TestUserSQLiteStore_UpdateUserRole(t *testing.T) {
 func TestUserSQLiteStore_UpdateUserPassword(t *testing.T) {
 	t.Run("success - user password updates", func(t *testing.T) {
 		// arrange
-		expectedUser := createUser(t, types.Operator)
+		expectedUser := createUser(t, Operator)
 
 		// act
 		newHash, _ := bcrypt.GenerateFromPassword([]byte("newtestpassword"), bcrypt.DefaultCost)
@@ -340,7 +339,7 @@ func TestUserSQLiteStore_UpdateUserPassword(t *testing.T) {
 func TestUserSQLiteStore_UpdateUserPasswordChangedOn(t *testing.T) {
 	t.Run("success - user password changed on time updates", func(t *testing.T) {
 		// arrange
-		expectedUser := createUser(t, types.Operator)
+		expectedUser := createUser(t, Operator)
 
 		// act
 		now := time.Now().UTC()
@@ -367,7 +366,7 @@ func TestUserSQLiteStore_UpdateUserPasswordChangedOn(t *testing.T) {
 func TestUserSQLiteStore_ReadUserBySessionID(t *testing.T) {
 	t.Run("success - user is found", func(t *testing.T) {
 		// arrange
-		expectedUser := createUser(t, types.Operator)
+		expectedUser := createUser(t, Operator)
 		as := createAuthSession(t, expectedUser)
 
 		// act
@@ -397,7 +396,7 @@ func TestUserSQLiteStore_ReadUserBySessionID(t *testing.T) {
 func TestUserSQLiteStore_DeleteAuthSessionsByUserID(t *testing.T) {
 	t.Run("success - user auth sessions are deleted", func(t *testing.T) {
 		// arrange
-		expectedUser := createUser(t, types.Operator)
+		expectedUser := createUser(t, Operator)
 		expectedAuthSession := createAuthSession(t, expectedUser)
 
 		// act
@@ -418,7 +417,7 @@ func TestUserSQLiteStore_DeleteAuthSessionsByUserID(t *testing.T) {
 func TestUserSQLiteStore_ListUsers(t *testing.T) {
 	t.Run("success - users found", func(t *testing.T) {
 		// arrange
-		expectedUser := createUser(t, types.Operator)
+		expectedUser := createUser(t, Operator)
 
 		// act
 		users, err := userStore.ListUsers(context.Background())
@@ -436,7 +435,7 @@ func TestUserSQLiteStore_ListUsers(t *testing.T) {
 func TestUserSQLiteStore_ListSuperusers(t *testing.T) {
 	t.Run("success - superusers found", func(t *testing.T) {
 		// arrange
-		expectedUser := createUser(t, types.Superuser)
+		expectedUser := createUser(t, Superuser)
 
 		// act
 		users, err := userStore.ListSuperusers(context.Background())
@@ -449,12 +448,12 @@ func TestUserSQLiteStore_ListSuperusers(t *testing.T) {
 			return u.UserID == expectedUser.UserID && u.Username == expectedUser.Username
 		}))
 		assert.True(t, util.All(users, func(u User) bool {
-			return u.UserRoleID == types.Superuser
+			return u.UserRoleID == Superuser
 		}))
 	})
 }
 
-func createUser(t *testing.T, role types.Role) *User {
+func createUser(t *testing.T, role Role) *User {
 	password := fmt.Sprintf("password%d", time.Now().UnixNano())
 	hash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	u, err := userStore.CreateUser(

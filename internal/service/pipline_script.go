@@ -1,4 +1,4 @@
-package types
+package service
 
 type Step struct {
 	Step           string `yaml:"step"`

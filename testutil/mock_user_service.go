@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/types"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -55,7 +54,7 @@ func (m *MockUserService) GetUserByUsernameAndPassword(
 
 func (m *MockUserService) CreateUser(
 	ctx context.Context,
-	userRoleID types.Role,
+	userRoleID store.Role,
 	username, password string,
 ) (*store.User, error) {
 	args := m.Called(ctx, userRoleID, username, password)
@@ -108,7 +107,7 @@ func (m *MockUserService) ListSuperusers(ctx context.Context) ([]store.User, err
 	return users, err
 }
 
-func (m *MockUserService) UpdateUserRole(ctx context.Context, userID int64, role types.Role) error {
+func (m *MockUserService) UpdateUserRole(ctx context.Context, userID int64, role store.Role) error {
 	args := m.Called(ctx, userID, role)
 	return args.Error(0)
 }
