@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/testutil"
+	"github.com/haatos/simple-ci/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

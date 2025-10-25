@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/testutil"
+	"github.com/haatos/simple-ci/internal/testutil"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 )

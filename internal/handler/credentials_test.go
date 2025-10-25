@@ -14,7 +14,7 @@ import (
 
 	"github.com/haatos/simple-ci/internal/security"
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/testutil"
+	"github.com/haatos/simple-ci/internal/testutil"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 )
