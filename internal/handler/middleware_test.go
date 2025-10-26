@@ -180,7 +180,6 @@ func TestMiddleware_RoleMiddlware(t *testing.T) {
 
 		// assert
 		assert.Error(t, err)
-		echoErr := new(echo.HTTPError)
 		echoErr, ok := err.(*echo.HTTPError)
 		assert.True(t, ok)
 		assert.Equal(t, http.StatusForbidden, echoErr.Code)
