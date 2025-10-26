@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/haatos/simple-ci/internal/service"
+	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/views"
 	"github.com/haatos/simple-ci/internal/views/pages"
 	"github.com/labstack/echo/v4"
@@ -15,6 +16,16 @@ import (
 const (
 	deleteCredentialErrorTarget string = "#delete-credential-error"
 )
+
+func SetupCredentialRoutes(g *echo.Group, credentialService service.CredentialServicer) {
+	h := NewCredentialHandler(credentialService)
+	credentialsGroup := g.Group("/app/credentials", IsAuthenticated)
+	credentialsGroup.GET("", h.GetCredentialsPage)
+	credentialsGroup.POST("", h.PostCredentials, RoleMiddleware(store.Admin))
+	credentialsGroup.PATCH("", h.PatchCredential, RoleMiddleware(store.Admin))
+	credentialsGroup.DELETE("/:credential_id", h.DeleteCredential, RoleMiddleware(store.Admin))
+	credentialsGroup.GET("/:credential_id", h.GetCredentialPage)
+}
 
 type CredentialHandler struct {
 	credentialService service.CredentialServicer

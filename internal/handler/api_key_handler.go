@@ -6,10 +6,19 @@ import (
 	"net/http"
 
 	"github.com/haatos/simple-ci/internal/service"
+	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/views"
 	"github.com/haatos/simple-ci/internal/views/pages"
 	"github.com/labstack/echo/v4"
 )
+
+func SetupAPIKeyRoutes(g *echo.Group, apiKeyService service.APIKeyServicer) {
+	h := NewAPIKeyHandler(apiKeyService)
+	apiKeysGroup := g.Group("/app/api-keys", IsAuthenticated)
+	apiKeysGroup.GET("", h.GetAPIKeysPage, RoleMiddleware(store.Admin))
+	apiKeysGroup.POST("", h.PostAPIKey, RoleMiddleware(store.Admin))
+	apiKeysGroup.DELETE("/:id", h.DeleteAPIKey, RoleMiddleware(store.Admin))
+}
 
 type APIKeyHandler struct {
 	apiKeyService service.APIKeyServicer

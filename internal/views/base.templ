@@ -119,7 +119,7 @@ templ navBarMenu(user *store.User) {
 				@components.Dropdown(components.DropdownProps{
 					Label: user.Username,
 					Items: []components.DropdownItem{
-						{Label: "Profile", Attrs: NavigationLinkAttrs("/profile")},
+						{Label: "Profile", Attrs: NavigationLinkAttrs("/app/users/profile")},
 						{Label: "Log out", Attrs: templ.Attributes{"href": "/auth/logout"}},
 					},
 					Class:     "dropdown-end",
@@ -177,12 +177,6 @@ templ sideMenu(user *store.User) {
 							Attrs: NavigationLinkAttrs("/app/api-keys"),
 						},
 					)
-					@components.MenuItem(
-						components.MenuItemProps{
-							Label: "Config",
-							Icon:  ConfigIcon(),
-							Attrs: NavigationLinkAttrs("/app/config"),
-						})
 				}
 			}
 		</aside>

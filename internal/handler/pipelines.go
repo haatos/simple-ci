@@ -24,6 +24,32 @@ import (
 
 const maxRunsPerPage int64 = 10
 
+func SetupPipelineRoutes(g *echo.Group, pipelineService service.PipelineServicer) {
+	h := NewPipelineHandler(pipelineService)
+	g.POST(
+		"/app/pipelines/:pipeline_id/webhook-trigger/:branch",
+		h.PostPipelineRunWebhookTrigger,
+	)
+	pipelinesGroup := g.Group("/app/pipelines", IsAuthenticated)
+	pipelinesGroup.GET("", h.GetPipelinesPage)
+	pipelinesGroup.POST("", h.PostPipeline)
+	pipelinesGroup.PATCH("", h.PatchPipeline)
+	pipelinesGroup.GET("/:pipeline_id", h.GetPipelinePage)
+	pipelinesGroup.GET("/:pipeline_id/card-content", h.GetPipelineCardContent)
+	pipelinesGroup.DELETE("/:pipeline_id", h.DeletePipeline)
+	pipelinesGroup.PATCH("/:pipeline_id/schedule", h.PatchPipelineSchedule)
+	pipelinesGroup.GET("/:pipeline_id/latest-runs", h.GetLatestPipelineRuns)
+	pipelinesGroup.POST("/:pipeline_id/runs", h.PostPipelineRun)
+	pipelinesGroup.GET("/:pipeline_id/runs/:run_id", h.GetPipelineRunPage)
+	pipelinesGroup.GET("/:pipeline_id/runs", h.GetPipelineRunsPage)
+	pipelinesGroup.GET("/:pipeline_id/runs-list", h.GetPipelineRunsList)
+	pipelinesGroup.GET("/:pipeline_id/runs/:run_id/sse", h.GetPipelineRunSSE)
+	pipelinesGroup.GET("/:pipeline_id/runs/:run_id/output", h.GetRunOutput)
+	pipelinesGroup.GET("/:pipeline_id/runs/:run_id/status", h.GetRunStatus)
+	pipelinesGroup.GET("/:pipeline_id/runs/:run_id/artifacts", h.GetPipelineRunArtifacts)
+	pipelinesGroup.POST("/:pipeline_id/runs/:run_id/cancel", h.PostCancelPipelineRun)
+}
+
 type PipelineHandler struct {
 	pipelineService service.PipelineServicer
 }
@@ -564,8 +590,11 @@ func (h *PipelineHandler) PostCancelPipelineRun(c echo.Context) error {
 	return renderToast(c, views.SuccessToast("cancelling run...", 3000))
 }
 
-func (h *PipelineHandler) SchedulePipelines(pipelineScheduler gocron.Scheduler) {
-	scheduledPipelines, err := h.pipelineService.ListScheduledPipelines(context.Background())
+func SchedulePipelines(
+	pipelineService service.PipelineServicer,
+	pipelineScheduler gocron.Scheduler,
+) {
+	scheduledPipelines, err := pipelineService.ListScheduledPipelines(context.Background())
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.Fatal(err)
 	}
@@ -573,7 +602,7 @@ func (h *PipelineHandler) SchedulePipelines(pipelineScheduler gocron.Scheduler) 
 		job, err := pipelineScheduler.NewJob(
 			gocron.CronJob(*p.Schedule, false),
 			gocron.NewTask(func() {
-				r, err := h.pipelineService.CreateRun(
+				r, err := pipelineService.CreateRun(
 					context.Background(),
 					p.PipelineID,
 					*p.ScheduleBranch,
@@ -581,7 +610,7 @@ func (h *PipelineHandler) SchedulePipelines(pipelineScheduler gocron.Scheduler) 
 				if err != nil {
 					log.Println("err running scheduled job: ", err)
 				}
-				if err := h.pipelineService.EnqueueRun(r); err != nil {
+				if err := pipelineService.EnqueueRun(r); err != nil {
 					log.Println("pipeline run queue is full")
 				}
 			}),
@@ -590,7 +619,7 @@ func (h *PipelineHandler) SchedulePipelines(pipelineScheduler gocron.Scheduler) 
 			log.Println("err re-scheduling pipeline:", err)
 		}
 		jobID := job.ID().String()
-		if err := h.pipelineService.UpdatePipelineScheduleJobID(
+		if err := pipelineService.UpdatePipelineScheduleJobID(
 			context.Background(), p.PipelineID, &jobID,
 		); err != nil {
 			log.Println("err updating re-scheduled pipeline job id:", err)

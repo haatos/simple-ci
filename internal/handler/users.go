@@ -7,11 +7,33 @@ import (
 	"net/http"
 
 	"github.com/haatos/simple-ci/internal/service"
+	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/views"
 	"github.com/haatos/simple-ci/internal/views/pages"
 
 	"github.com/labstack/echo/v4"
 )
+
+func SetupUserRoutes(
+	g *echo.Group,
+	userService service.UserServicer,
+	cookieService *service.CookieService,
+) {
+	h := NewUserHandler(userService, cookieService)
+	usersGroup := g.Group("/app/users", IsAuthenticated)
+	usersGroup.GET("", h.GetUsers, RoleMiddleware(store.Admin))
+	usersGroup.POST("", h.PostUsers, RoleMiddleware(store.Admin))
+	usersGroup.GET("/profile", h.GetProfilePage)
+	usersGroup.DELETE("/:user_id", h.DeleteUser, RoleMiddleware(store.Admin))
+	usersGroup.PATCH("/:user_id/change-password", h.PatchChangeUserPassword)
+	usersGroup.PATCH("/:user_id/password", h.PatchUserPassword)
+	usersGroup.PATCH(
+		"/:user_id/reset-password",
+		h.PatchResetUserPassword,
+		RoleMiddleware(store.Admin),
+	)
+	usersGroup.PATCH("/:user_id/role", h.PatchUserRole, RoleMiddleware(store.Superuser))
+}
 
 type UserHandler struct {
 	userService   service.UserServicer

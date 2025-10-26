@@ -21,7 +21,6 @@ templ AppMain(user *store.User) {
 			}
 			if user.IsAdmin() {
 				@appCard("API Keys", "View and manage API keys", "/app/api-keys", views.APIKeysIcon())
-				@appCard("Config", "Configure SimpleCI", "/app/config", views.ConfigIcon())
 			}
 		</div>
 	</main>

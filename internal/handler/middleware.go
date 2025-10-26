@@ -3,9 +3,32 @@ package handler
 import (
 	"net/http"
 
+	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/labstack/echo/v4"
 )
+
+func SessionMiddleware(
+	userService service.UserServicer,
+	cookieService *service.CookieService,
+) func(echo.HandlerFunc) echo.HandlerFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			var user *store.User
+
+			sessionID, err := cookieService.GetSessionID(c)
+			if err == nil && sessionID != "" {
+				user, err = userService.GetUserBySessionID(c.Request().Context(), sessionID)
+				if err != nil {
+					cookieService.RemoveSessionCookie(c)
+				}
+			}
+
+			c.Set("user", user)
+			return next(c)
+		}
+	}
+}
 
 func AlreadyLoggedIn(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {

@@ -17,6 +17,17 @@ const (
 	deleteAgentErrorTarget string = "#delete-agent-error"
 )
 
+func SetupAgentRoutes(g *echo.Group, agentService service.AgentServicer) {
+	h := NewAgentHandler(agentService)
+	agentsGroup := g.Group("/app/agents", IsAuthenticated)
+	agentsGroup.GET("", h.GetAgentsPage)
+	agentsGroup.POST("", h.PostAgent)
+	agentsGroup.PATCH("", h.PatchAgent)
+	agentsGroup.GET("/:agent_id", h.GetAgentPage)
+	agentsGroup.DELETE("/:agent_id", h.DeleteAgent)
+	agentsGroup.POST("/:agent_id/test-connection", h.PostTestAgentConnection)
+}
+
 type AgentHandler struct {
 	agentService service.AgentServicer
 }

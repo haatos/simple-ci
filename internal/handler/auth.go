@@ -5,11 +5,23 @@ import (
 	"net/http"
 
 	"github.com/haatos/simple-ci/internal/service"
-	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/views/pages"
 
 	"github.com/labstack/echo/v4"
 )
+
+func SetupAuthRoutes(
+	g *echo.Group,
+	userService service.UserServicer,
+	cookieService *service.CookieService,
+) {
+	h := NewAuthHandler(userService, cookieService)
+	g.GET("", h.GetLoginPage, AlreadyLoggedIn)
+	g.GET("/auth/logout", h.GetLogOut)
+	g.POST("/auth/login", h.PostLogin)
+	g.GET("/auth/set-password", h.GetSetPasswordPage)
+	g.POST("/auth/set-password", h.PostSetPassword)
+}
 
 type AuthHandler struct {
 	userService   service.UserServicer
@@ -21,23 +33,6 @@ func NewAuthHandler(
 	cookieService *service.CookieService,
 ) *AuthHandler {
 	return &AuthHandler{userService, cookieService}
-}
-
-func (h *AuthHandler) SessionMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		var user *store.User
-
-		sessionID, err := h.cookieService.GetSessionID(c)
-		if err == nil && sessionID != "" {
-			user, err = h.userService.GetUserBySessionID(c.Request().Context(), sessionID)
-			if err != nil {
-				h.cookieService.RemoveSessionCookie(c)
-			}
-		}
-
-		c.Set("user", user)
-		return next(c)
-	}
 }
 
 func (h *AuthHandler) GetLoginPage(c echo.Context) error {

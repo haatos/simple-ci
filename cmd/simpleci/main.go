@@ -38,11 +38,11 @@ func main() {
 
 	cookieSvc := service.NewCookieService(hashKey, blockKey)
 	userSvc := service.NewUserService(store.NewUserSQLiteStore(rdb, rwdb))
-	credSvc := service.NewCredentialService(
+	credentialSvc := service.NewCredentialService(
 		store.NewCredentialSQLiteStore(rdb, rwdb),
 		security.NewAESEncrypter([]byte(os.Getenv("SIMPLECI_HASH_KEY"))),
 	)
-	agentSvc := service.NewAgentService(store.NewAgentSQLiteStore(rdb, rwdb), credSvc)
+	agentSvc := service.NewAgentService(store.NewAgentSQLiteStore(rdb, rwdb), credentialSvc)
 	apiKeySvc := service.NewAPIKeyService(
 		store.NewAPIKeySQLiteStore(rdb, rwdb),
 		service.NewUUIDGen(),
@@ -50,7 +50,7 @@ func main() {
 	pipelineSvc := service.NewPipelineService(
 		store.NewPipelineSQLiteStore(rdb, rwdb),
 		store.NewRunSQLiteStore(rdb, rwdb),
-		credSvc,
+		credentialSvc,
 		agentSvc,
 		apiKeySvc,
 		pipelineScheduler,
@@ -61,93 +61,22 @@ func main() {
 
 	userSvc.InitializeSuperuser(context.Background())
 
-	authH := handler.NewAuthHandler(userSvc, cookieSvc)
-	userH := handler.NewUserHandler(userSvc, cookieSvc)
-	credH := handler.NewCredentialHandler(credSvc)
-	agentH := handler.NewAgentHandler(agentSvc)
-	pipelineH := handler.NewPipelineHandler(pipelineSvc)
-	apiKeyH := handler.NewAPIKeyHandler(apiKeySvc)
-
 	store.KVStore = store.NewKeyValueStore()
 	store.KVStore.ScheduleDailyCleanUp(kvStoreScheduler)
 	kvStoreScheduler.Start()
 
-	pipelineH.SchedulePipelines(pipelineScheduler)
+	handler.SchedulePipelines(pipelineSvc, pipelineScheduler)
 	pipelineScheduler.Start()
 
 	e := setupEcho()
-	router := e.Group("", authH.SessionMiddleware)
-
-	router.GET("", authH.GetLoginPage, handler.AlreadyLoggedIn)
-	router.GET("/auth/logout", authH.GetLogOut)
-	router.POST("/auth/login", authH.PostLogin)
-	router.GET("/auth/set-password", authH.GetSetPasswordPage)
-	router.POST("/auth/set-password", authH.PostSetPassword)
-
-	// pipeline run webhook trigger
-	router.POST(
-		"/pipelines/:pipeline_id/webhook-trigger/:branch",
-		pipelineH.PostPipelineRunWebhookTrigger,
-	)
-
-	app := router.Group("/app", handler.IsAuthenticated)
-	app.GET("", handler.GetAppPage)
-
-	app.GET("/user", userH.GetProfilePage)
-	app.GET("/users", userH.GetUsers, handler.RoleMiddleware(store.Admin))
-	app.POST("/users", userH.PostUsers, handler.RoleMiddleware(store.Admin))
-	app.DELETE("/users/:user_id", userH.DeleteUser, handler.RoleMiddleware(store.Admin))
-	app.PATCH("/users/:user_id/change-password", userH.PatchChangeUserPassword)
-	app.PATCH("/users/:user_id/password", userH.PatchUserPassword)
-	app.PATCH(
-		"/users/:user_id/reset-password",
-		userH.PatchResetUserPassword,
-		handler.RoleMiddleware(store.Admin),
-	)
-	app.PATCH("/users/:user_id/role", userH.PatchUserRole, handler.RoleMiddleware(store.Superuser))
-
-	app.GET("/credentials", credH.GetCredentialsPage)
-	app.POST("/credentials", credH.PostCredentials, handler.RoleMiddleware(store.Admin))
-	app.PATCH("/credentials", credH.PatchCredential, handler.RoleMiddleware(store.Admin))
-	app.DELETE(
-		"/credentials/:credential_id",
-		credH.DeleteCredential,
-		handler.RoleMiddleware(store.Admin),
-	)
-	app.GET("/credentials/:credential_id", credH.GetCredentialPage)
-
-	app.GET("/agents", agentH.GetAgentsPage)
-	app.POST("/agents", agentH.PostAgent)
-	app.PATCH("/agents", agentH.PatchAgent)
-	app.GET("/agents/:agent_id", agentH.GetAgentPage)
-	app.DELETE("/agents/:agent_id", agentH.DeleteAgent)
-	app.POST("/agents/:agent_id/test-connection", agentH.PostTestAgentConnection)
-
-	app.GET("/pipelines", pipelineH.GetPipelinesPage)
-	app.POST("/pipelines", pipelineH.PostPipeline)
-	app.PATCH("/pipelines", pipelineH.PatchPipeline)
-	app.GET("/pipelines/:pipeline_id", pipelineH.GetPipelinePage)
-	app.GET("/pipelines/:pipeline_id/card-content", pipelineH.GetPipelineCardContent)
-	app.DELETE("/pipelines/:pipeline_id", pipelineH.DeletePipeline)
-	app.PATCH("/pipelines/:pipeline_id/schedule", pipelineH.PatchPipelineSchedule)
-
-	app.GET("/pipelines/:pipeline_id/latest-runs", pipelineH.GetLatestPipelineRuns)
-	app.POST("/pipelines/:pipeline_id/runs", pipelineH.PostPipelineRun)
-	app.GET("/pipelines/:pipeline_id/runs/:run_id", pipelineH.GetPipelineRunPage)
-	app.GET("/pipelines/:pipeline_id/runs", pipelineH.GetPipelineRunsPage)
-	app.GET("/pipelines/:pipeline_id/runs-list", pipelineH.GetPipelineRunsList)
-	app.GET("/pipelines/:pipeline_id/runs/:run_id/sse", pipelineH.GetPipelineRunSSE)
-	app.GET("/pipelines/:pipeline_id/runs/:run_id/output", pipelineH.GetRunOutput)
-	app.GET("/pipelines/:pipeline_id/runs/:run_id/status", pipelineH.GetRunStatus)
-	app.GET("/pipelines/:pipeline_id/runs/:run_id/artifacts", pipelineH.GetPipelineRunArtifacts)
-	app.POST("/pipelines/:pipeline_id/runs/:run_id/cancel", pipelineH.PostCancelPipelineRun)
-
-	app.GET("/api-keys", apiKeyH.GetAPIKeysPage, handler.RoleMiddleware(store.Admin))
-	app.POST("/api-keys", apiKeyH.PostAPIKey, handler.RoleMiddleware(store.Admin))
-	app.DELETE("/api-keys/:id", apiKeyH.DeleteAPIKey, handler.RoleMiddleware(store.Admin))
-
-	app.GET("/config", handler.GetConfigPage, handler.RoleMiddleware(store.Admin))
-	app.POST("/config", handler.PostConfig, handler.RoleMiddleware(store.Admin))
+	g := e.Group("", handler.SessionMiddleware(userSvc, cookieSvc))
+	handler.SetupAuthRoutes(g, userSvc, cookieSvc)
+	handler.SetupAppRoutes(g)
+	handler.SetupUserRoutes(g, userSvc, cookieSvc)
+	handler.SetupCredentialRoutes(g, credentialSvc)
+	handler.SetupAgentRoutes(g, agentSvc)
+	handler.SetupPipelineRoutes(g, pipelineSvc)
+	handler.SetupAPIKeyRoutes(g, apiKeySvc)
 
 	internal.GracefulShutdown(e, settings.Settings.Port)
 }
