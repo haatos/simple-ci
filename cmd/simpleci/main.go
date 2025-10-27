@@ -31,10 +31,8 @@ func main() {
 	defer rwdb.Close()
 	store.RunMigrations(rwdb, "migrations")
 
-	kvStoreScheduler := service.NewScheduler()
-	defer kvStoreScheduler.Shutdown()
-	pipelineScheduler := service.NewScheduler()
-	defer pipelineScheduler.Shutdown()
+	scheduler := service.NewScheduler()
+	defer scheduler.Shutdown()
 
 	cookieSvc := service.NewCookieService(hashKey, blockKey)
 	userSvc := service.NewUserService(store.NewUserSQLiteStore(rdb, rwdb))
@@ -53,7 +51,7 @@ func main() {
 		credentialSvc,
 		agentSvc,
 		apiKeySvc,
-		pipelineScheduler,
+		scheduler,
 	)
 	if err := pipelineSvc.InitializeRunQueues(context.Background()); err != nil {
 		log.Fatal(err)
@@ -62,11 +60,9 @@ func main() {
 	userSvc.InitializeSuperuser(context.Background())
 
 	store.KVStore = store.NewKeyValueStore()
-	store.KVStore.ScheduleDailyCleanUp(kvStoreScheduler)
-	kvStoreScheduler.Start()
-
-	handler.SchedulePipelines(pipelineSvc, pipelineScheduler)
-	pipelineScheduler.Start()
+	store.KVStore.ScheduleDailyCleanUp(scheduler)
+	handler.SchedulePipelines(pipelineSvc, scheduler)
+	scheduler.Start()
 
 	e := setupEcho()
 	g := e.Group("", handler.SessionMiddleware(userSvc, cookieSvc))
