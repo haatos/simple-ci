@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := dev
 
 tw:
-	@npx @tailwindcss/cli -i input.css -o ./public/static/css/tw.css --watch
+	@npx @tailwindcss/cli -i internal/assets/input.css -o ./internal/assets/public/static/css/tw.css --watch
 
 run:
 	go run cmd/simpleci/main.go

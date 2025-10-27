@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"os"
 
-	assets "github.com/haatos/simple-ci"
 	"github.com/haatos/simple-ci/internal"
+	"github.com/haatos/simple-ci/internal/assets"
 	"github.com/haatos/simple-ci/internal/handler"
 	"github.com/haatos/simple-ci/internal/security"
 	"github.com/haatos/simple-ci/internal/service"

@@ -1,6 +1,6 @@
 @import "tailwindcss" source(none);
 @plugin "@tailwindcss/typography";
-@source "./internal/views/**/*.templ";
+@source "../views/**/*.templ";
 @plugin "daisyui" {
   themes: nord --default;
   exclude: rootscrollgutter;

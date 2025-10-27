@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"log"
 
-	assets "github.com/haatos/simple-ci"
+	"github.com/haatos/simple-ci/internal/assets"
 	"github.com/pressly/goose/v3"
 
 	_ "github.com/jackc/pgx/v5"
