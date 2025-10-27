@@ -22,14 +22,14 @@ import (
 
 func main() {
 	internal.InitializeConfiguration()
-	settings.ReadDotenv("./.env")
+	settings.ReadDotenv(internal.DotEnvPath)
 	settings.Settings = settings.NewSettings()
 	hashKey, blockKey := security.NewKeys()
 	rdb := store.InitDatabase(true)
 	defer rdb.Close()
 	rwdb := store.InitDatabase(false)
 	defer rwdb.Close()
-	store.RunMigrations(rwdb, "migrations")
+	store.RunMigrations(rwdb, internal.MigrationsDir)
 
 	scheduler := service.NewScheduler()
 	defer scheduler.Shutdown()
@@ -85,7 +85,7 @@ func setupEcho() *echo.Echo {
 		middleware.RateLimiterWithConfig(internal.GetRateLimiterConfig()),
 	)
 
-	publicFS := echo.MustSubFS(assets.PublicFS, "public")
+	publicFS := echo.MustSubFS(assets.PublicFS, internal.PublicDir)
 	e.StaticFS("/", publicFS)
 	e.GET("/favicon.ico", func(c echo.Context) error {
 		return c.Redirect(http.StatusSeeOther, "/favicon.svg")
