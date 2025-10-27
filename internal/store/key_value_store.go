@@ -9,8 +9,6 @@ import (
 	"github.com/haatos/simple-ci/internal"
 )
 
-var KVStore *KeyValueStore
-
 const initQuery = `
 	CREATE TABLE IF NOT EXISTS kvstore (
 		email TEXT PRIMARY KEY,

@@ -59,8 +59,8 @@ func main() {
 
 	userSvc.InitializeSuperuser(context.Background())
 
-	store.KVStore = store.NewKeyValueStore()
-	store.KVStore.ScheduleDailyCleanUp(scheduler)
+	kvStore := store.NewKeyValueStore()
+	kvStore.ScheduleDailyCleanUp(scheduler)
 	handler.SchedulePipelines(pipelineSvc, scheduler)
 	scheduler.Start()
 
