@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,8 +14,8 @@ import (
 	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/settings"
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/util"
 	"github.com/haatos/simple-ci/internal/testutil"
+	"github.com/haatos/simple-ci/internal/util"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/bcrypt"
@@ -27,13 +26,10 @@ func TestAuthHandler_GetLoginPage(t *testing.T) {
 		// arrange
 		mockService := new(testutil.MockUserService)
 		e := echo.New()
-		var credentialID int64 = 1
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
-		c.SetParamNames("credential_id")
-		c.SetParamValues(fmt.Sprintf("%d", credentialID))
 		h := NewAuthHandler(mockService, nil)
 
 		// act
@@ -51,15 +47,12 @@ func TestAuthHandler_GetLoginPage(t *testing.T) {
 		// arrange
 		mockService := new(testutil.MockUserService)
 		e := echo.New()
-		var credentialID int64 = 1
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
 
 		c.Request().Header.Set("hx-request", "true")
-		c.SetParamNames("credential_id")
-		c.SetParamValues(fmt.Sprintf("%d", credentialID))
 		h := NewAuthHandler(mockService, nil)
 
 		// act
@@ -77,7 +70,6 @@ func TestAuthHandler_GetLoginPage(t *testing.T) {
 		// arrange
 		mockService := new(testutil.MockUserService)
 		e := echo.New()
-		var credentialID int64 = 1
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 		rec := httptest.NewRecorder()
@@ -90,8 +82,6 @@ func TestAuthHandler_GetLoginPage(t *testing.T) {
 		}
 		c.Set("user", user)
 		c.Request().Header.Set("hx-request", "true")
-		c.SetParamNames("credential_id")
-		c.SetParamValues(fmt.Sprintf("%d", credentialID))
 		h := NewAuthHandler(mockService, nil)
 
 		// act
