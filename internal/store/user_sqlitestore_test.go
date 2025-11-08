@@ -6,33 +6,35 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/util"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"golang.org/x/crypto/bcrypt"
 
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
 )
 
-var userStore *UserSQLiteStore
-var credentialStore *CredentialSQLiteStore
-var agentStore *AgentSQLiteStore
-var pipelineStore *PipelineSQLiteStore
-var runStore *RunSQLiteStore
-var apiKeyStore *APIKeySQLiteStore
+type userSQLiteStoreSuite struct {
+	userStore *UserSQLiteStore
+	db        *sql.DB
+	suite.Suite
+}
 
-func TestMain(m *testing.M) {
+func TestUserSQLiteStore(t *testing.T) {
+	suite.Run(t, new(userSQLiteStoreSuite))
+}
+
+func (suite *userSQLiteStoreSuite) SetupSuite() {
 	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
+	suite.db = db
 	_, err = db.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
 		log.Fatal(err)
@@ -40,18 +42,15 @@ func TestMain(m *testing.M) {
 
 	RunMigrations(db, "../../migrations")
 
-	userStore = NewUserSQLiteStore(db, db)
-	credentialStore = NewCredentialSQLiteStore(db, db)
-	agentStore = NewAgentSQLiteStore(db, db)
-	pipelineStore = NewPipelineSQLiteStore(db, db)
-	runStore = NewRunSQLiteStore(db, db)
-	apiKeyStore = NewAPIKeySQLiteStore(db, db)
-	code := m.Run()
-	os.Exit(code)
+	suite.userStore = NewUserSQLiteStore(db, db)
 }
 
-func TestCreateUser(t *testing.T) {
-	t.Run("success - user is stored", func(t *testing.T) {
+func (suite *userSQLiteStoreSuite) TearDownSuite() {
+	_ = suite.db.Close()
+}
+
+func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_CreateUser() {
+	suite.Run("success - user is stored", func() {
 		// arrange
 		hash, _ := bcrypt.GenerateFromPassword([]byte("testpassword"), bcrypt.DefaultCost)
 		role := Admin
@@ -59,7 +58,7 @@ func TestCreateUser(t *testing.T) {
 		sshPrivateKeyHash := string(hash)
 
 		// act
-		u, err := userStore.CreateUser(
+		u, err := suite.userStore.CreateUser(
 			context.Background(),
 			role,
 			username,
@@ -67,182 +66,182 @@ func TestCreateUser(t *testing.T) {
 		)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, u)
-		assert.NotEqual(t, 0, u.UserID)
-		assert.Equal(t, role, u.UserRoleID)
-		assert.Equal(t, username, u.Username)
-		assert.Equal(t, sshPrivateKeyHash, u.PasswordHash)
-		assert.Nil(t, u.PasswordChangedOn)
+		suite.NoError(err)
+		suite.NotNil(u)
+		suite.NotEqual(0, u.UserID)
+		suite.Equal(role, u.UserRoleID)
+		suite.Equal(username, u.Username)
+		suite.Equal(sshPrivateKeyHash, u.PasswordHash)
+		suite.Nil(u.PasswordChangedOn)
 	})
-	t.Run("failure - username already exists", func(t *testing.T) {
+	suite.Run("failure - username already exists", func() {
 		// arrange
 		hash, _ := bcrypt.GenerateFromPassword([]byte("testpassword"), bcrypt.DefaultCost)
 		role := Operator
 		username := "existingoperator"
 		sshPrivateKeyHash := string(hash)
-		_, err := userStore.CreateUser(
+		_, err := suite.userStore.CreateUser(
 			context.Background(),
 			role, username, sshPrivateKeyHash,
 		)
-		assert.NoError(t, err)
+		suite.NoError(err)
 
 		// act
-		u, err := userStore.CreateUser(
+		u, err := suite.userStore.CreateUser(
 			context.Background(),
 			role, username, sshPrivateKeyHash,
 		)
 
 		// assert
-		assert.Error(t, err)
-		assert.Nil(t, u)
+		suite.Error(err)
+		suite.Nil(u)
 	})
 }
 
-func TestCreateSuperuser(t *testing.T) {
-	t.Run("success - superuser is stored", func(t *testing.T) {
+func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_CreateSuperuser() {
+	suite.Run("success - superuser is stored", func() {
 		// arrange
 		hash, _ := bcrypt.GenerateFromPassword([]byte("testpassword"), bcrypt.DefaultCost)
 		username := "testsuperuser"
 		sshPrivateKeyHash := string(hash)
 
 		// act
-		u, err := userStore.CreateSuperuser(
+		u, err := suite.userStore.CreateSuperuser(
 			context.Background(),
 			username,
 			sshPrivateKeyHash,
 		)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, u)
-		assert.NotEqual(t, 0, u.UserID)
-		assert.Equal(t, Superuser, u.UserRoleID)
-		assert.Equal(t, username, u.Username)
-		assert.Equal(t, sshPrivateKeyHash, u.PasswordHash)
-		assert.NotNil(t, u.PasswordChangedOn)
-		assert.True(t, u.PasswordChangedOn.Before(time.Now().UTC()))
+		suite.NoError(err)
+		suite.NotNil(u)
+		suite.NotEqual(0, u.UserID)
+		suite.Equal(Superuser, u.UserRoleID)
+		suite.Equal(username, u.Username)
+		suite.Equal(sshPrivateKeyHash, u.PasswordHash)
+		suite.NotNil(u.PasswordChangedOn)
+		suite.True(u.PasswordChangedOn.Before(time.Now().UTC()))
 	})
-	t.Run("failure - username already exists", func(t *testing.T) {
+	suite.Run("failure - username already exists", func() {
 		// arrange
 		hash, _ := bcrypt.GenerateFromPassword([]byte("testpassword"), bcrypt.DefaultCost)
 		role := Superuser
 		username := "existingsuperuser"
 		sshPrivateKeyHash := string(hash)
-		_, err := userStore.CreateUser(
+		_, err := suite.userStore.CreateUser(
 			context.Background(),
 			role, username, sshPrivateKeyHash,
 		)
-		assert.NoError(t, err)
+		suite.NoError(err)
 
 		// act
-		u, err := userStore.CreateUser(
+		u, err := suite.userStore.CreateUser(
 			context.Background(),
 			role, username, sshPrivateKeyHash,
 		)
 
 		// assert
-		assert.Error(t, err)
-		assert.Nil(t, u)
+		suite.Error(err)
+		suite.Nil(u)
 	})
 }
 
-func TestUserSQLiteStore_ReadUserByID(t *testing.T) {
-	t.Run("success - user is found", func(t *testing.T) {
+func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_ReadUserByID() {
+	suite.Run("success - user is found", func() {
 		// arrange
-		expectedUser := createUser(t, Operator)
+		expectedUser := suite.createUser(Operator)
 
 		// act
-		u, err := userStore.ReadUserByID(context.Background(), expectedUser.UserID)
+		u, err := suite.userStore.ReadUserByID(context.Background(), expectedUser.UserID)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, u)
-		assert.Equal(t, expectedUser.UserID, u.UserID)
-		assert.Equal(t, expectedUser.UserRoleID, u.UserRoleID)
-		assert.Equal(t, expectedUser.Username, u.Username)
+		suite.NoError(err)
+		suite.NotNil(u)
+		suite.Equal(expectedUser.UserID, u.UserID)
+		suite.Equal(expectedUser.UserRoleID, u.UserRoleID)
+		suite.Equal(expectedUser.Username, u.Username)
 	})
-	t.Run("failure - user is not found", func(t *testing.T) {
+	suite.Run("failure - user is not found", func() {
 		// arrange
 		var userID int64 = 12345
 
 		// act
-		u, err := userStore.ReadUserByID(context.Background(), userID)
+		u, err := suite.userStore.ReadUserByID(context.Background(), userID)
 
 		// assert
-		assert.Error(t, err)
-		assert.True(t, errors.Is(err, sql.ErrNoRows))
-		assert.Nil(t, u)
+		suite.Error(err)
+		suite.True(errors.Is(err, sql.ErrNoRows))
+		suite.Nil(u)
 	})
 }
 
-func TestUserSQLiteStore_ReadUserByUsername(t *testing.T) {
-	t.Run("success - user is found", func(t *testing.T) {
+func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_ReadUserByUsername() {
+	suite.Run("success - user is found", func() {
 		// arrange
-		expectedUser := createUser(t, Operator)
+		expectedUser := suite.createUser(Operator)
 
 		// act
-		u, err := userStore.ReadUserByUsername(context.Background(), expectedUser.Username)
+		u, err := suite.userStore.ReadUserByUsername(context.Background(), expectedUser.Username)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, u)
-		assert.Equal(t, expectedUser.UserID, u.UserID)
-		assert.Equal(t, expectedUser.UserRoleID, u.UserRoleID)
-		assert.Equal(t, expectedUser.Username, u.Username)
+		suite.NoError(err)
+		suite.NotNil(u)
+		suite.Equal(expectedUser.UserID, u.UserID)
+		suite.Equal(expectedUser.UserRoleID, u.UserRoleID)
+		suite.Equal(expectedUser.Username, u.Username)
 	})
-	t.Run("failure - user is not found", func(t *testing.T) {
+	suite.Run("failure - user is not found", func() {
 		// arrange
 		nonExistingUsername := "nonexistingusername"
 
 		// act
-		u, err := userStore.ReadUserByUsername(context.Background(), nonExistingUsername)
+		u, err := suite.userStore.ReadUserByUsername(context.Background(), nonExistingUsername)
 
 		// assert
-		assert.Error(t, err)
-		assert.True(t, errors.Is(err, sql.ErrNoRows))
-		assert.Nil(t, u)
+		suite.Error(err)
+		suite.True(errors.Is(err, sql.ErrNoRows))
+		suite.Nil(u)
 	})
 }
 
-func TestUserSQLiteStore_DeleteUser(t *testing.T) {
-	t.Run("success - user is deleted", func(t *testing.T) {
+func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_DeleteUser() {
+	suite.Run("success - user is deleted", func() {
 		// arrange
-		expectedUser := createUser(t, Operator)
+		expectedUser := suite.createUser(Operator)
 
 		// act
-		err := userStore.DeleteUser(context.Background(), expectedUser.UserID)
+		err := suite.userStore.DeleteUser(context.Background(), expectedUser.UserID)
 
 		// assert
-		assert.NoError(t, err)
+		suite.NoError(err)
 
-		u, err := userStore.ReadUserByID(context.Background(), expectedUser.UserID)
-		assert.Error(t, err)
-		assert.Nil(t, u)
-		assert.True(t, errors.Is(err, sql.ErrNoRows))
+		u, err := suite.userStore.ReadUserByID(context.Background(), expectedUser.UserID)
+		suite.Error(err)
+		suite.Nil(u)
+		suite.True(errors.Is(err, sql.ErrNoRows))
 	})
-	t.Run("failure - user is not found", func(t *testing.T) {
+	suite.Run("failure - user is not found", func() {
 		// arrange
 		var userID int64 = 235645
 
 		// act
-		err := userStore.DeleteUser(context.Background(), userID)
+		err := suite.userStore.DeleteUser(context.Background(), userID)
 
 		// assert
-		assert.NoError(t, err)
+		suite.NoError(err)
 	})
 }
 
-func TestUserSQLiteStore_CreateAuthSession(t *testing.T) {
-	t.Run("success - auth session created", func(t *testing.T) {
+func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_CreateAuthSession() {
+	suite.Run("success - auth session created", func() {
 		// arrange
-		expectedUser := createUser(t, Operator)
+		expectedUser := suite.createUser(Operator)
 		sessionID := "testsession"
 		sessionUserID := expectedUser.UserID
 		sessionExpires := time.Now().UTC().Add(30 * time.Second)
 
 		// act
-		as, err := userStore.CreateAuthSession(
+		as, err := suite.userStore.CreateAuthSession(
 			context.Background(),
 			sessionID,
 			sessionUserID,
@@ -250,20 +249,20 @@ func TestUserSQLiteStore_CreateAuthSession(t *testing.T) {
 		)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, as)
-		assert.Equal(t, sessionID, as.AuthSessionID)
-		assert.Equal(t, sessionUserID, as.AuthSessionUserID)
-		assert.Equal(t, sessionExpires, as.AuthSessionExpires)
+		suite.NoError(err)
+		suite.NotNil(as)
+		suite.Equal(sessionID, as.AuthSessionID)
+		suite.Equal(sessionUserID, as.AuthSessionUserID)
+		suite.Equal(sessionExpires, as.AuthSessionExpires)
 	})
-	t.Run("failure - user id not found", func(t *testing.T) {
+	suite.Run("failure - user id not found", func() {
 		// arrange
 		sessionID := "testsession"
 		var sessionUserID int64 = 432424
 		sessionExpires := time.Now().UTC().Add(30 * time.Second)
 
 		// act
-		as, err := userStore.CreateAuthSession(
+		as, err := suite.userStore.CreateAuthSession(
 			context.Background(),
 			sessionID,
 			sessionUserID,
@@ -271,213 +270,218 @@ func TestUserSQLiteStore_CreateAuthSession(t *testing.T) {
 		)
 
 		// assert
-		assert.Error(t, err)
+		suite.Error(err)
 		sqliteErr, ok := err.(*sqlite.Error)
-		assert.True(t, ok)
-		assert.Equal(t, sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY, sqliteErr.Code())
-		assert.Nil(t, as)
+		suite.True(ok)
+		suite.Equal(sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY, sqliteErr.Code())
+		suite.Nil(as)
 	})
 }
 
-func TestUserSQLiteStore_UpdateUserRole(t *testing.T) {
-	t.Run("success - user role updates", func(t *testing.T) {
+func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_UpdateUserRole() {
+	suite.Run("success - user role updates", func() {
 		// arrange
-		expectedUser := createUser(t, Operator)
+		expectedUser := suite.createUser(Operator)
 
 		// act
-		updateErr := userStore.UpdateUserRole(
+		updateErr := suite.userStore.UpdateUserRole(
 			context.Background(),
 			expectedUser.UserID,
 			Admin,
 		)
-		u, readErr := userStore.ReadUserByID(context.Background(), expectedUser.UserID)
+		u, readErr := suite.userStore.ReadUserByID(context.Background(), expectedUser.UserID)
 
 		// assert
-		assert.NoError(t, updateErr)
-		assert.NoError(t, readErr)
-		assert.NotNil(t, u)
-		assert.Equal(t, Admin, u.UserRoleID)
+		suite.NoError(updateErr)
+		suite.NoError(readErr)
+		suite.NotNil(u)
+		suite.Equal(Admin, u.UserRoleID)
 	})
-	t.Run("failure - user role does not exist", func(t *testing.T) {
+	suite.Run("failure - user role does not exist", func() {
 		// arrange
-		expectedUser := createUser(t, Operator)
+		expectedUser := suite.createUser(Operator)
 
 		// act
-		updateErr := userStore.UpdateUserRole(
+		updateErr := suite.userStore.UpdateUserRole(
 			context.Background(),
 			expectedUser.UserID,
 			Role(123_123_123),
 		)
 
 		// assert
-		assert.Error(t, updateErr)
+		suite.Error(updateErr)
 	})
 }
 
-func TestUserSQLiteStore_UpdateUserPassword(t *testing.T) {
-	t.Run("success - user password updates", func(t *testing.T) {
+func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_UpdateUserPassword() {
+	suite.Run("success - user password updates", func() {
 		// arrange
-		expectedUser := createUser(t, Operator)
+		expectedUser := suite.createUser(Operator)
 
 		// act
 		newHash, _ := bcrypt.GenerateFromPassword([]byte("newtestpassword"), bcrypt.DefaultCost)
-		updateErr := userStore.UpdateUserPassword(
+		updateErr := suite.userStore.UpdateUserPassword(
 			context.Background(),
 			expectedUser.UserID,
 			string(newHash),
 		)
-		u, readErr := userStore.ReadUserByID(context.Background(), expectedUser.UserID)
+		u, readErr := suite.userStore.ReadUserByID(context.Background(), expectedUser.UserID)
 
 		// assert
-		assert.NoError(t, updateErr)
-		assert.NoError(t, readErr)
-		assert.NotNil(t, u)
-		assert.Equal(t, string(newHash), u.PasswordHash)
+		suite.NoError(updateErr)
+		suite.NoError(readErr)
+		suite.NotNil(u)
+		suite.Equal(string(newHash), u.PasswordHash)
 	})
 }
 
-func TestUserSQLiteStore_UpdateUserPasswordChangedOn(t *testing.T) {
-	t.Run("success - user password changed on time updates", func(t *testing.T) {
+func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_UpdateUserPasswordChangedOn() {
+	suite.Run("success - user password changed on time updates", func() {
 		// arrange
-		expectedUser := createUser(t, Operator)
+		expectedUser := suite.createUser(Operator)
 
 		// act
 		now := time.Now().UTC()
-		updateErr := userStore.UpdateUserPasswordChangedOn(
+		updateErr := suite.userStore.UpdateUserPasswordChangedOn(
 			context.Background(),
 			expectedUser.UserID,
 			&now,
 		)
-		u, readErr := userStore.ReadUserByID(context.Background(), expectedUser.UserID)
+		u, readErr := suite.userStore.ReadUserByID(context.Background(), expectedUser.UserID)
 
 		// assert
-		assert.NoError(t, updateErr)
-		assert.NoError(t, readErr)
-		assert.NotNil(t, u)
-		assert.NotNil(t, u.PasswordChangedOn)
-		assert.Equal(
-			t,
+		suite.NoError(updateErr)
+		suite.NoError(readErr)
+		suite.NotNil(u)
+		suite.NotNil(u.PasswordChangedOn)
+		suite.Equal(
 			now.Format(internal.DBTimestampLayout),
 			u.PasswordChangedOn.Format(internal.DBTimestampLayout),
 		)
 	})
 }
 
-func TestUserSQLiteStore_ReadUserBySessionID(t *testing.T) {
-	t.Run("success - user is found", func(t *testing.T) {
+func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_ReadUserBySessionID() {
+	suite.Run("success - user is found", func() {
 		// arrange
-		expectedUser := createUser(t, Operator)
-		as := createAuthSession(t, expectedUser)
+		expectedUser := suite.createUser(Operator)
+		as := suite.createAuthSession(expectedUser)
 
 		// act
-		u, err := userStore.ReadUserBySessionID(context.Background(), as.AuthSessionID)
+		u, err := suite.userStore.ReadUserBySessionID(context.Background(), as.AuthSessionID)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, u)
-		assert.Equal(t, expectedUser.UserID, u.UserID)
-		assert.Equal(t, expectedUser.UserRoleID, u.UserRoleID)
-		assert.Equal(t, expectedUser.Username, u.Username)
+		suite.NoError(err)
+		suite.NotNil(u)
+		suite.Equal(expectedUser.UserID, u.UserID)
+		suite.Equal(expectedUser.UserRoleID, u.UserRoleID)
+		suite.Equal(expectedUser.Username, u.Username)
 	})
-	t.Run("failure - auth session is not found", func(t *testing.T) {
+	suite.Run("failure - auth session is not found", func() {
 		// arrange
 		nonExistingAuthSessionID := "nonexistingauthsessionid"
 
 		// act
-		u, err := userStore.ReadUserBySessionID(context.Background(), nonExistingAuthSessionID)
+		u, err := suite.userStore.ReadUserBySessionID(
+			context.Background(),
+			nonExistingAuthSessionID,
+		)
 
 		// assert
-		assert.Error(t, err)
-		assert.True(t, errors.Is(err, sql.ErrNoRows))
-		assert.Nil(t, u)
+		suite.Error(err)
+		suite.True(errors.Is(err, sql.ErrNoRows))
+		suite.Nil(u)
 	})
 }
 
-func TestUserSQLiteStore_DeleteAuthSessionsByUserID(t *testing.T) {
-	t.Run("success - user auth sessions are deleted", func(t *testing.T) {
+func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_DeleteAuthSessionsByUserID() {
+	suite.Run("success - user auth sessions are deleted", func() {
 		// arrange
-		expectedUser := createUser(t, Operator)
-		expectedAuthSession := createAuthSession(t, expectedUser)
+		expectedUser := suite.createUser(Operator)
+		expectedAuthSession := suite.createAuthSession(expectedUser)
 
 		// act
-		deleteErr := userStore.DeleteAuthSessionsByUserID(context.Background(), expectedUser.UserID)
-		u, readErr := userStore.ReadUserBySessionID(
+		deleteErr := suite.userStore.DeleteAuthSessionsByUserID(
+			context.Background(),
+			expectedUser.UserID,
+		)
+		u, readErr := suite.userStore.ReadUserBySessionID(
 			context.Background(),
 			expectedAuthSession.AuthSessionID,
 		)
 
 		// assert
-		assert.NoError(t, deleteErr)
-		assert.Error(t, readErr)
-		assert.True(t, errors.Is(readErr, sql.ErrNoRows))
-		assert.Nil(t, u)
+		suite.NoError(deleteErr)
+		suite.Error(readErr)
+		suite.True(errors.Is(readErr, sql.ErrNoRows))
+		suite.Nil(u)
 	})
 }
 
-func TestUserSQLiteStore_ListUsers(t *testing.T) {
-	t.Run("success - users found", func(t *testing.T) {
+func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_ListUsers() {
+	suite.Run("success - users found", func() {
 		// arrange
-		expectedUser := createUser(t, Operator)
+		expectedUser := suite.createUser(Operator)
 
 		// act
-		users, err := userStore.ListUsers(context.Background())
+		users, err := suite.userStore.ListUsers(context.Background())
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, users)
-		assert.True(t, len(users) >= 1)
-		assert.True(t, slices.ContainsFunc(users, func(u *User) bool {
+		suite.NoError(err)
+		suite.NotNil(users)
+		suite.True(len(users) >= 1)
+		suite.True(slices.ContainsFunc(users, func(u *User) bool {
 			return u.UserID == expectedUser.UserID && u.Username == expectedUser.Username
 		}))
 	})
 }
 
-func TestUserSQLiteStore_ListSuperusers(t *testing.T) {
-	t.Run("success - superusers found", func(t *testing.T) {
+func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_ListSuperusers() {
+	suite.Run("success - superusers found", func() {
 		// arrange
-		expectedUser := createUser(t, Superuser)
+		expectedUser := suite.createUser(Superuser)
 
 		// act
-		users, err := userStore.ListSuperusers(context.Background())
+		users, err := suite.userStore.ListSuperusers(context.Background())
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, users)
-		assert.True(t, len(users) >= 1)
-		assert.True(t, slices.ContainsFunc(users, func(u User) bool {
+		suite.NoError(err)
+		suite.NotNil(users)
+		suite.True(len(users) >= 1)
+		suite.True(slices.ContainsFunc(users, func(u User) bool {
 			return u.UserID == expectedUser.UserID && u.Username == expectedUser.Username
 		}))
-		assert.True(t, util.All(users, func(u User) bool {
+		suite.True(util.All(users, func(u User) bool {
 			return u.UserRoleID == Superuser
 		}))
 	})
 }
 
-func createUser(t *testing.T, role Role) *User {
+func (suite *userSQLiteStoreSuite) createUser(role Role) *User {
 	password := fmt.Sprintf("password%d", time.Now().UnixNano())
 	hash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	u, err := userStore.CreateUser(
+	u, err := suite.userStore.CreateUser(
 		context.Background(),
 		role,
 		fmt.Sprintf("testuser%d", time.Now().UnixNano()),
 		string(hash),
 	)
-	assert.NoError(t, err)
+	suite.NoError(err)
 	return u
 }
 
-func createAuthSession(t *testing.T, u *User) *AuthSession {
+func (suite *userSQLiteStoreSuite) createAuthSession(u *User) *AuthSession {
 	expectedAuthSession := &AuthSession{
 		AuthSessionID:      fmt.Sprintf("%d", time.Now().UnixNano()),
 		AuthSessionUserID:  u.UserID,
 		AuthSessionExpires: time.Now().UTC().Add(30 * time.Second),
 	}
-	as, err := userStore.CreateAuthSession(
+	as, err := suite.userStore.CreateAuthSession(
 		context.Background(),
 		expectedAuthSession.AuthSessionID,
 		expectedAuthSession.AuthSessionUserID,
 		expectedAuthSession.AuthSessionExpires,
 	)
-	assert.NoError(t, err)
+	suite.NoError(err)
 	return as
 }

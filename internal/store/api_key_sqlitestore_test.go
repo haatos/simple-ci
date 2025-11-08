@@ -4,129 +4,160 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"slices"
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestAPIKeySQLiteStore_CreateAPIKey(t *testing.T) {
-	t.Run("success - api key is created", func(t *testing.T) {
+type apiKeySQLiteStoreSuite struct {
+	apiKeyStore *APIKeySQLiteStore
+	db          *sql.DB
+	suite.Suite
+}
+
+func TestAPIKeySQLiteStore(t *testing.T) {
+	suite.Run(t, new(apiKeySQLiteStoreSuite))
+}
+
+func (suite *apiKeySQLiteStoreSuite) SetupSuite() {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		log.Fatal(err)
+	}
+	suite.db = db
+	_, err = db.Exec("PRAGMA foreign_keys = ON;")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	RunMigrations(db, "../../migrations")
+
+	suite.apiKeyStore = NewAPIKeySQLiteStore(db, db)
+}
+
+func (suite *apiKeySQLiteStoreSuite) TearDownSuite() {
+	_ = suite.db.Close()
+}
+
+func (suite *apiKeySQLiteStoreSuite) TestAPIKeySQLiteStore_CreateAPIKey() {
+	suite.Run("success - api key is created", func() {
 		// arrange
 		value := uuid.NewString()
 
 		// act
-		ak, err := apiKeyStore.CreateAPIKey(context.Background(), value)
+		ak, err := suite.apiKeyStore.CreateAPIKey(context.Background(), value)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, ak)
-		assert.Equal(t, value, ak.Value)
+		suite.NoError(err)
+		suite.NotNil(ak)
+		suite.Equal(value, ak.Value)
 	})
 }
 
-func TestAPIKeySQLiteStore_ReadAPIKeyByID(t *testing.T) {
-	t.Run("success - key is found by id", func(t *testing.T) {
+func (suite *apiKeySQLiteStoreSuite) TestAPIKeySQLiteStore_ReadAPIKeyByID() {
+	suite.Run("success - key is found by id", func() {
 		// arrange
-		expectedKey := createAPIKey(t)
+		expectedKey := suite.createAPIKey()
 
 		// act
-		ak, err := apiKeyStore.ReadAPIKeyByID(context.Background(), expectedKey.ID)
+		ak, err := suite.apiKeyStore.ReadAPIKeyByID(context.Background(), expectedKey.ID)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, ak)
-		assert.Equal(t, expectedKey.ID, ak.ID)
-		assert.Equal(t, expectedKey.Value, ak.Value)
+		suite.NoError(err)
+		suite.NotNil(ak)
+		suite.Equal(expectedKey.ID, ak.ID)
+		suite.Equal(expectedKey.Value, ak.Value)
 	})
-	t.Run("failure - key is not found by id", func(t *testing.T) {
+	suite.Run("failure - key is not found by id", func() {
 		// arrange
 		var id int64 = 432512
 
 		// act
-		ak, err := apiKeyStore.ReadAPIKeyByID(context.Background(), id)
+		ak, err := suite.apiKeyStore.ReadAPIKeyByID(context.Background(), id)
 
 		// assert
-		assert.Error(t, err)
-		assert.True(t, errors.Is(err, sql.ErrNoRows))
-		assert.Nil(t, ak)
+		suite.Error(err)
+		suite.True(errors.Is(err, sql.ErrNoRows))
+		suite.Nil(ak)
 	})
 }
 
-func TestAPIKeySQLiteStore_ReadAPIKeyByValue(t *testing.T) {
-	t.Run("success - key is found by value", func(t *testing.T) {
+func (suite *apiKeySQLiteStoreSuite) TestAPIKeySQLiteStore_ReadAPIKeyByValue() {
+	suite.Run("success - key is found by value", func() {
 		// arrange
-		expectedKey := createAPIKey(t)
+		expectedKey := suite.createAPIKey()
 
 		// act
-		ak, err := apiKeyStore.ReadAPIKeyByValue(context.Background(), expectedKey.Value)
+		ak, err := suite.apiKeyStore.ReadAPIKeyByValue(context.Background(), expectedKey.Value)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, ak)
-		assert.Equal(t, expectedKey.ID, ak.ID)
-		assert.Equal(t, expectedKey.Value, ak.Value)
+		suite.NoError(err)
+		suite.NotNil(ak)
+		suite.Equal(expectedKey.ID, ak.ID)
+		suite.Equal(expectedKey.Value, ak.Value)
 	})
-	t.Run("failure - key is not found by value", func(t *testing.T) {
+	suite.Run("failure - key is not found by value", func() {
 		// arrange
 		value := uuid.NewString()
 
 		// act
-		ak, err := apiKeyStore.ReadAPIKeyByValue(context.Background(), value)
+		ak, err := suite.apiKeyStore.ReadAPIKeyByValue(context.Background(), value)
 
 		// assert
-		assert.Error(t, err)
-		assert.True(t, errors.Is(err, sql.ErrNoRows))
-		assert.Nil(t, ak)
+		suite.Error(err)
+		suite.True(errors.Is(err, sql.ErrNoRows))
+		suite.Nil(ak)
 	})
 }
 
-func TestAPIKeySQLiteStore_DeleteAPIKey(t *testing.T) {
-	t.Run("success - key is found and deleted", func(t *testing.T) {
+func (suite *apiKeySQLiteStoreSuite) TestAPIKeySQLiteStore_DeleteAPIKey() {
+	suite.Run("success - key is found and deleted", func() {
 		// arrange
-		key := createAPIKey(t)
+		key := suite.createAPIKey()
 
 		// act
-		delErr := apiKeyStore.DeleteAPIKey(context.Background(), key.ID)
-		ak, readErr := apiKeyStore.ReadAPIKeyByID(context.Background(), key.ID)
+		delErr := suite.apiKeyStore.DeleteAPIKey(context.Background(), key.ID)
+		ak, readErr := suite.apiKeyStore.ReadAPIKeyByID(context.Background(), key.ID)
 
 		// assert
-		assert.NoError(t, delErr)
-		assert.Error(t, readErr)
-		assert.ErrorIs(t, readErr, sql.ErrNoRows)
-		assert.Nil(t, ak)
+		suite.NoError(delErr)
+		suite.Error(readErr)
+		suite.ErrorIs(readErr, sql.ErrNoRows)
+		suite.Nil(ak)
 	})
-	t.Run("failure - key is not found", func(t *testing.T) {
+	suite.Run("failure - key is not found", func() {
 		// arrange
 		var id int64 = 3432535
 
 		// act
-		err := apiKeyStore.DeleteAPIKey(context.Background(), id)
+		err := suite.apiKeyStore.DeleteAPIKey(context.Background(), id)
 
 		// assert
-		assert.Error(t, err)
-		assert.ErrorIs(t, err, sql.ErrNoRows)
+		suite.Error(err)
+		suite.ErrorIs(err, sql.ErrNoRows)
 	})
 }
 
-func TestAPIKeySQLiteStore_ListAPIKeys(t *testing.T) {
+func (suite *apiKeySQLiteStoreSuite) TestAPIKeySQLiteStore_ListAPIKeys() {
 	// arrange
-	key := createAPIKey(t)
+	key := suite.createAPIKey()
 
 	// act
-	keys, err := apiKeyStore.ListAPIKeys(context.Background())
+	keys, err := suite.apiKeyStore.ListAPIKeys(context.Background())
 
 	// assert
-	assert.NoError(t, err)
-	assert.NotNil(t, keys)
-	assert.True(t, slices.ContainsFunc(keys, func(k *APIKey) bool {
+	suite.NoError(err)
+	suite.NotNil(keys)
+	suite.True(slices.ContainsFunc(keys, func(k *APIKey) bool {
 		return k.ID == key.ID
 	}))
 }
 
-func createAPIKey(t *testing.T) *APIKey {
-	ak, err := apiKeyStore.CreateAPIKey(context.Background(), uuid.NewString())
-	assert.NoError(t, err)
+func (suite *apiKeySQLiteStoreSuite) createAPIKey() *APIKey {
+	ak, err := suite.apiKeyStore.CreateAPIKey(context.Background(), uuid.NewString())
+	suite.NoError(err)
 	return ak
 }

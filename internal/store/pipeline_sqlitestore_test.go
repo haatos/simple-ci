@@ -5,27 +5,83 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestPipelineSQLiteStore_CreatePipeline(t *testing.T) {
-	t.Run("success - pipeline created", func(t *testing.T) {
+type pipelineSQLiteStoreSuite struct {
+	pipelineStore *PipelineSQLiteStore
+	db            *sql.DB
+	credential    *Credential
+	agent         *Agent
+	suite.Suite
+}
+
+func TestPipelineSQLiteStore(t *testing.T) {
+	suite.Run(t, new(pipelineSQLiteStoreSuite))
+}
+
+func (suite *pipelineSQLiteStoreSuite) SetupSuite() {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		log.Fatal(err)
+	}
+	suite.db = db
+	_, err = db.Exec("PRAGMA foreign_keys = ON;")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	RunMigrations(db, "../../migrations")
+
+	credentialStore := NewCredentialSQLiteStore(db, db)
+	c, err := credentialStore.CreateCredential(
+		context.Background(),
+		"pipelinetestuser",
+		"",
+		"pipelinetestuser",
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	suite.credential = c
+	agentStore := NewAgentSQLiteStore(db, db)
+	a, err := agentStore.CreateAgent(
+		context.Background(),
+		c.CredentialID,
+		"pipelineagent",
+		"localhost",
+		"/tmp",
+		"",
+		"unix",
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	suite.agent = a
+	suite.pipelineStore = NewPipelineSQLiteStore(db, db)
+}
+
+func (suite *pipelineSQLiteStoreSuite) TearDownSuite() {
+	_ = suite.db.Close()
+}
+
+func (suite *pipelineSQLiteStoreSuite) TestPipelineSQLiteStore_CreatePipeline() {
+	suite.Run("success - pipeline created", func() {
 		// arrange
-		c := createCredential(t)
-		a := createAgent(t, c)
-		pipelineAgentID := a.AgentID
+		pipelineAgentID := suite.agent.AgentID
 		name := "pipeline"
 		description := "description"
 		repository := "git@github.com:haatos/simple-ci.git"
 		scriptPath := "pipelines/testing-pipeline.yml"
 
 		// act
-		p, err := pipelineStore.CreatePipeline(
+		p, err := suite.pipelineStore.CreatePipeline(
 			context.Background(),
 			pipelineAgentID,
 			name,
@@ -35,210 +91,198 @@ func TestPipelineSQLiteStore_CreatePipeline(t *testing.T) {
 		)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, c)
-		assert.NotEqual(t, 0, p.PipelineID)
-		assert.Equal(t, name, p.Name)
-		assert.Equal(t, description, p.Description)
-		assert.Equal(t, repository, p.Repository)
-		assert.Equal(t, scriptPath, p.ScriptPath)
+		suite.NoError(err)
+		suite.NotNil(p)
+		suite.NotEqual(0, p.PipelineID)
+		suite.Equal(name, p.Name)
+		suite.Equal(description, p.Description)
+		suite.Equal(repository, p.Repository)
+		suite.Equal(scriptPath, p.ScriptPath)
 	})
 }
 
-func TestPipelineSQLiteStore_ReadPipelineByID(t *testing.T) {
-	t.Run("success - pipeline found", func(t *testing.T) {
+func (suite *pipelineSQLiteStoreSuite) TestPipelineSQLiteStore_ReadPipelineByID() {
+	suite.Run("success - pipeline found", func() {
 		// arrange
-		c := createCredential(t)
-		a := createAgent(t, c)
-		expectedPipeline := createPipeline(t, a)
+		expectedPipeline := suite.createPipeline()
 
 		// act
-		p, err := pipelineStore.ReadPipelineByID(
+		p, err := suite.pipelineStore.ReadPipelineByID(
 			context.Background(),
 			expectedPipeline.PipelineID,
 		)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, c)
-		assert.Equal(t, expectedPipeline.Name, p.Name)
-		assert.Equal(t, expectedPipeline.Description, p.Description)
-		assert.Equal(t, expectedPipeline.Repository, p.Repository)
-		assert.Equal(t, expectedPipeline.ScriptPath, p.ScriptPath)
-		assert.Equal(t, expectedPipeline.Schedule, p.Schedule)
+		suite.NoError(err)
+		suite.NotNil(p)
+		suite.Equal(expectedPipeline.Name, p.Name)
+		suite.Equal(expectedPipeline.Description, p.Description)
+		suite.Equal(expectedPipeline.Repository, p.Repository)
+		suite.Equal(expectedPipeline.ScriptPath, p.ScriptPath)
+		suite.Equal(expectedPipeline.Schedule, p.Schedule)
 	})
-	t.Run("failure - pipeline not found", func(t *testing.T) {
+	suite.Run("failure - pipeline not found", func() {
 		// arrange
 		var id int64 = 43241
 
 		// act
-		p, err := pipelineStore.ReadPipelineByID(context.Background(), id)
+		p, err := suite.pipelineStore.ReadPipelineByID(context.Background(), id)
 
 		// assert
-		assert.Error(t, err)
-		assert.True(t, errors.Is(err, sql.ErrNoRows))
-		assert.Nil(t, p)
+		suite.Error(err)
+		suite.True(errors.Is(err, sql.ErrNoRows))
+		suite.Nil(p)
 	})
 }
 
-func TestPipelineSQLiteStore_ReadPipelineRunData(t *testing.T) {
-	t.Run("success - pipeline run data is found", func(t *testing.T) {
+func (suite *pipelineSQLiteStoreSuite) TestPipelineSQLiteStore_ReadPipelineRunData() {
+	suite.Run("success - pipeline run data is found", func() {
 		// arrange
-		c := createCredential(t)
-		a := createAgent(t, c)
-		expectedPipeline := createPipeline(t, a)
+		expectedPipeline := suite.createPipeline()
 
 		// act
-		prd, err := pipelineStore.ReadPipelineRunData(
+		prd, err := suite.pipelineStore.ReadPipelineRunData(
 			context.Background(),
 			expectedPipeline.PipelineID,
 		)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, prd)
-		assert.Equal(t, expectedPipeline.PipelineID, prd.PipelineID)
-		assert.Equal(t, expectedPipeline.Repository, prd.Repository)
-		assert.Equal(t, expectedPipeline.ScriptPath, prd.ScriptPath)
-		assert.Equal(t, a.AgentID, prd.AgentID)
-		assert.Equal(t, a.Hostname, prd.Hostname)
-		assert.Equal(t, a.Workspace, prd.Workspace)
-		assert.Equal(t, c.CredentialID, prd.CredentialID)
-		assert.Equal(t, c.Username, prd.Username)
-		assert.Equal(t, c.SSHPrivateKeyHash, prd.SSHPrivateKeyHash)
+		suite.NoError(err)
+		suite.NotNil(prd)
+		suite.Equal(expectedPipeline.PipelineID, prd.PipelineID)
+		suite.Equal(expectedPipeline.Repository, prd.Repository)
+		suite.Equal(expectedPipeline.ScriptPath, prd.ScriptPath)
+		suite.Equal(suite.agent.AgentID, prd.AgentID)
+		suite.Equal(suite.agent.Hostname, prd.Hostname)
+		suite.Equal(suite.agent.Workspace, prd.Workspace)
+		suite.Equal(suite.credential.CredentialID, prd.CredentialID)
+		suite.Equal(suite.credential.Username, prd.Username)
+		suite.Equal(suite.credential.SSHPrivateKeyHash, prd.SSHPrivateKeyHash)
 	})
-	t.Run("failure - pipeline run data is not found", func(t *testing.T) {
+	suite.Run("failure - pipeline run data is not found", func() {
 		// arrange
 		var id int64 = 42351223
 
 		// act
-		prd, err := pipelineStore.ReadPipelineRunData(context.Background(), id)
+		prd, err := suite.pipelineStore.ReadPipelineRunData(context.Background(), id)
 
 		// assert
-		assert.Error(t, err)
-		assert.Nil(t, prd)
+		suite.Error(err)
+		suite.Nil(prd)
 	})
 }
 
-func TestPipelineSQLiteStore_UpdatePipeline(t *testing.T) {
-	t.Run("success - pipeline updates", func(t *testing.T) {
+func (suite *pipelineSQLiteStoreSuite) TestPipelineSQLiteStore_UpdatePipeline() {
+	suite.Run("success - pipeline updates", func() {
 		// arrange
-		c := createCredential(t)
-		a := createAgent(t, c)
-		p := createPipeline(t, a)
+		p := suite.createPipeline()
 		name := "updated pipeline"
 		description := "updated description"
 		repository := "git@github.com:haatos/simple-cii.git"
 		scriptPath := "pipelines/testing-pipeline1.yml"
 
 		// act
-		updateErr := pipelineStore.UpdatePipeline(
+		updateErr := suite.pipelineStore.UpdatePipeline(
 			context.Background(),
 			p.PipelineID,
-			a.AgentID,
+			suite.agent.AgentID,
 			name,
 			description,
 			repository,
 			scriptPath,
 		)
-		p, readErr := pipelineStore.ReadPipelineByID(
+		p, readErr := suite.pipelineStore.ReadPipelineByID(
 			context.Background(),
 			p.PipelineID,
 		)
 
 		// assert
-		assert.NoError(t, updateErr)
-		assert.NoError(t, readErr)
-		assert.Equal(t, name, p.Name)
-		assert.Equal(t, description, p.Description)
-		assert.Equal(t, repository, p.Repository)
-		assert.Equal(t, scriptPath, p.ScriptPath)
-		assert.Nil(t, p.Schedule)
+		suite.NoError(updateErr)
+		suite.NoError(readErr)
+		suite.Equal(name, p.Name)
+		suite.Equal(description, p.Description)
+		suite.Equal(repository, p.Repository)
+		suite.Equal(scriptPath, p.ScriptPath)
+		suite.Nil(p.Schedule)
 	})
 }
 
-func TestPipelineSQLiteStore_DeletePipeline(t *testing.T) {
-	t.Run("success - pipeline is deleted", func(t *testing.T) {
+func (suite *pipelineSQLiteStoreSuite) TestPipelineSQLiteStore_DeletePipeline() {
+	suite.Run("success - pipeline is deleted", func() {
 		// arrange
-		c := createCredential(t)
-		a := createAgent(t, c)
-		p := createPipeline(t, a)
+		p := suite.createPipeline()
 
 		// act
-		deleteErr := pipelineStore.DeletePipeline(
+		deleteErr := suite.pipelineStore.DeletePipeline(
 			context.Background(),
 			p.PipelineID,
 		)
-		p, readErr := pipelineStore.ReadPipelineByID(
+		p, readErr := suite.pipelineStore.ReadPipelineByID(
 			context.Background(),
 			p.PipelineID,
 		)
 
 		// assert
-		assert.NoError(t, deleteErr)
-		assert.Error(t, readErr)
-		assert.Nil(t, p)
+		suite.NoError(deleteErr)
+		suite.Error(readErr)
+		suite.Nil(p)
 	})
 }
 
-func TestPipelineSQLiteStore_ListPipelines(t *testing.T) {
-	t.Run("success - pipelines found", func(t *testing.T) {
+func (suite *pipelineSQLiteStoreSuite) TestPipelineSQLiteStore_ListPipelines() {
+	suite.Run("success - pipelines found", func() {
 		// arrange
-		c := createCredential(t)
-		a := createAgent(t, c)
-		expectedPipeline := createPipeline(t, a)
+		expectedPipeline := suite.createPipeline()
 		// act
-		pipelines, err := pipelineStore.ListPipelines(context.Background())
+		pipelines, err := suite.pipelineStore.ListPipelines(context.Background())
 
 		// assert
-		assert.NoError(t, err)
-		assert.True(t, len(pipelines) >= 1)
-		assert.True(t, slices.ContainsFunc(pipelines, func(c *Pipeline) bool {
+		suite.NoError(err)
+		suite.True(len(pipelines) >= 1)
+		suite.True(slices.ContainsFunc(pipelines, func(c *Pipeline) bool {
 			return c.PipelineID == expectedPipeline.PipelineID
 		}))
 	})
 }
 
-func TestPipelineSQLiteStore_UpdatePipelineSchedule(t *testing.T) {
-	t.Run("success - pipeline schedule updates", func(t *testing.T) {
+func (suite *pipelineSQLiteStoreSuite) TestPipelineSQLiteStore_UpdatePipelineSchedule() {
+	suite.Run("success - pipeline schedule updates", func() {
 		// arrange
-		c := createCredential(t)
-		a := createAgent(t, c)
-		expectedPipeline := createPipeline(t, a)
+		expectedPipeline := suite.createPipeline()
 
 		// act
 		newSchedule := "* * * * *"
 		newBranch := "main"
 		newJobID := uuid.NewString()
 
-		updateErr := pipelineStore.UpdatePipelineSchedule(
+		updateErr := suite.pipelineStore.UpdatePipelineSchedule(
 			context.Background(), expectedPipeline.PipelineID, &newSchedule, &newBranch, &newJobID,
 		)
-		p, readErr := pipelineStore.ReadPipelineByID(
+		p, readErr := suite.pipelineStore.ReadPipelineByID(
 			context.Background(), expectedPipeline.PipelineID,
 		)
 
 		// assert
-		assert.NoError(t, updateErr)
-		assert.NoError(t, readErr)
-		assert.NotNil(t, p.Schedule)
-		assert.Equal(t, newSchedule, *p.Schedule)
-		assert.NotNil(t, p.ScheduleBranch)
-		assert.Equal(t, newBranch, *p.ScheduleBranch)
-		assert.NotNil(t, p.ScheduleJobID)
-		assert.Equal(t, newJobID, *p.ScheduleJobID)
+		suite.NoError(updateErr)
+		suite.NoError(readErr)
+		suite.NotNil(p.Schedule)
+		suite.Equal(newSchedule, *p.Schedule)
+		suite.NotNil(p.ScheduleBranch)
+		suite.Equal(newBranch, *p.ScheduleBranch)
+		suite.NotNil(p.ScheduleJobID)
+		suite.Equal(newJobID, *p.ScheduleJobID)
 	})
 }
 
-func createPipeline(t *testing.T, a *Agent) *Pipeline {
-	p, err := pipelineStore.CreatePipeline(
+func (suite *pipelineSQLiteStoreSuite) createPipeline() *Pipeline {
+	p, err := suite.pipelineStore.CreatePipeline(
 		context.Background(),
-		a.AgentID,
+		suite.agent.AgentID,
 		fmt.Sprintf("pipeline%d", time.Now().UnixNano()),
 		fmt.Sprintf("description%d", time.Now().UnixNano()),
 		"github.com:haatos/simple-ci.git",
 		"/pipelines/testing.yml",
 	)
-	assert.NoError(t, err)
+	suite.NoError(err)
 	return p
 }

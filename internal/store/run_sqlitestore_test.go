@@ -4,199 +4,249 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/haatos/simple-ci/internal"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
 )
 
-func TestRunSQLiteStore_CreateRun(t *testing.T) {
-	t.Run("success - run created", func(t *testing.T) {
+type runSQLiteStoreSuite struct {
+	runStore   *RunSQLiteStore
+	db         *sql.DB
+	credential *Credential
+	agent      *Agent
+	pipeline   *Pipeline
+	suite.Suite
+}
+
+func TestRunSQLiteStore(t *testing.T) {
+	suite.Run(t, new(runSQLiteStoreSuite))
+}
+
+func (suite *runSQLiteStoreSuite) SetupSuite() {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		log.Fatal(err)
+	}
+	suite.db = db
+	_, err = db.Exec("PRAGMA foreign_keys = ON;")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	RunMigrations(db, "../../migrations")
+
+	suite.runStore = NewRunSQLiteStore(db, db)
+	credentialStore := NewCredentialSQLiteStore(db, db)
+	c, err := credentialStore.CreateCredential(
+		context.Background(),
+		"runtestuser",
+		"",
+		"runtestuser",
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	suite.credential = c
+	agentStore := NewAgentSQLiteStore(db, db)
+	a, err := agentStore.CreateAgent(
+		context.Background(),
+		c.CredentialID,
+		"runagent",
+		"localhost",
+		"/tmp",
+		"",
+		"unix",
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	suite.agent = a
+	pipelineStore := NewPipelineSQLiteStore(db, db)
+	p, err := pipelineStore.CreatePipeline(
+		context.Background(),
+		a.AgentID,
+		"runpipeline",
+		"",
+		"github.com:haatos/simple-ci.git",
+		"pipelines/testing-pipeline.yml",
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	suite.pipeline = p
+}
+
+func (suite *runSQLiteStoreSuite) TearDownSuite() {
+	_ = suite.db.Close()
+}
+
+func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_CreateRun() {
+	suite.Run("success - run created", func() {
 		// arrange
-		c := createCredential(t)
-		a := createAgent(t, c)
-		p := createPipeline(t, a)
 		branch := "main"
 
 		// act
-		r, err := runStore.CreateRun(
+		r, err := suite.runStore.CreateRun(
 			context.Background(),
-			p.PipelineID,
+			suite.pipeline.PipelineID,
 			branch,
 		)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, r)
-		assert.Equal(t, branch, r.Branch)
-		assert.Equal(t, StatusQueued, r.Status)
+		suite.NoError(err)
+		suite.NotNil(r)
+		suite.Equal(branch, r.Branch)
+		suite.Equal(StatusQueued, r.Status)
 	})
-	t.Run("failure - invalid pipeline id", func(t *testing.T) {
+	suite.Run("failure - invalid pipeline id", func() {
 		// arrange
 		var pipelineID int64 = 2345523
 
 		// act
-		p, err := runStore.CreateRun(context.Background(), pipelineID, "main")
+		p, err := suite.runStore.CreateRun(context.Background(), pipelineID, "main")
 
 		// assert
-		assert.Error(t, err)
+		suite.Error(err)
 		var sqliteErr *sqlite.Error
 		ok := errors.As(err, &sqliteErr)
-		assert.True(t, ok)
-		assert.Equal(t, sqlite3.SQLITE_CONSTRAINT_FOREIGNKEY, sqliteErr.Code())
-		assert.Nil(t, p)
+		suite.True(ok)
+		suite.Equal(sqlite3.SQLITE_CONSTRAINT_FOREIGNKEY, sqliteErr.Code())
+		suite.Nil(p)
 	})
 }
 
-func TestRunSQLiteStore_ReadRunByID(t *testing.T) {
-	t.Run("success - run is found", func(t *testing.T) {
+func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_ReadRunByID() {
+	suite.Run("success - run is found", func() {
 		// arrange
-		c := createCredential(t)
-		a := createAgent(t, c)
-		p := createPipeline(t, a)
-		expectedRun, err := runStore.CreateRun(
-			context.Background(), p.PipelineID, "main")
-		assert.NoError(t, err)
+		expectedRun, err := suite.runStore.CreateRun(
+			context.Background(), suite.pipeline.PipelineID, "main")
+		suite.NoError(err)
 
 		// act
-		r, err := runStore.ReadRunByID(context.Background(), expectedRun.RunID)
+		r, err := suite.runStore.ReadRunByID(context.Background(), expectedRun.RunID)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, r)
-		assert.Equal(t, expectedRun.Branch, r.Branch)
-		assert.Equal(t, expectedRun.Status, r.Status)
+		suite.NoError(err)
+		suite.NotNil(r)
+		suite.Equal(expectedRun.Branch, r.Branch)
+		suite.Equal(expectedRun.Status, r.Status)
 	})
-	t.Run("failure - run is not found", func(t *testing.T) {
+	suite.Run("failure - run is not found", func() {
 		// arrange
 		var runID int64 = 3432452
 
 		// act
-		r, err := runStore.ReadRunByID(context.Background(), runID)
+		r, err := suite.runStore.ReadRunByID(context.Background(), runID)
 
 		// assert
-		assert.Error(t, err)
-		assert.True(t, errors.Is(err, sql.ErrNoRows))
-		assert.Nil(t, r)
+		suite.Error(err)
+		suite.True(errors.Is(err, sql.ErrNoRows))
+		suite.Nil(r)
 	})
 }
 
-func TestRunSQLiteStore_UpdateRunStartedOn(t *testing.T) {
-	t.Run("success - run started on updates", func(t *testing.T) {
+func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_UpdateRunStartedOn() {
+	suite.Run("success - run started on updates", func() {
 		// arrange
-		c := createCredential(t)
-		a := createAgent(t, c)
-		p := createPipeline(t, a)
-		expectedRun, err := runStore.CreateRun(
-			context.Background(), p.PipelineID, "main")
-		assert.NoError(t, err)
+		expectedRun, err := suite.runStore.CreateRun(
+			context.Background(), suite.pipeline.PipelineID, "main")
+		suite.NoError(err)
 
 		// act
 		now := time.Now().UTC()
-		updateErr := runStore.UpdateRunStartedOn(
+		updateErr := suite.runStore.UpdateRunStartedOn(
 			context.Background(),
 			expectedRun.RunID,
 			time.Now().UTC().Format(internal.RunDirLayout),
 			StatusRunning,
 			&now,
 		)
-		r, readErr := runStore.ReadRunByID(
+		r, readErr := suite.runStore.ReadRunByID(
 			context.Background(), expectedRun.RunID)
 
 		// assert
-		assert.NoError(t, updateErr)
-		assert.NoError(t, readErr)
-		assert.NotNil(t, r)
-		assert.Equal(
-			t,
-			now.Format(internal.DBTimestampLayout),
+		suite.NoError(updateErr)
+		suite.NoError(readErr)
+		suite.NotNil(r)
+		suite.Equal(now.Format(internal.DBTimestampLayout),
 			r.StartedOn.Format(internal.DBTimestampLayout),
 		)
 	})
 }
 
-func TestRunSQLiteStore_UpdateRunEndedOn(t *testing.T) {
-	t.Run("success - run ended on updates", func(t *testing.T) {
+func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_UpdateRunEndedOn() {
+	suite.Run("success - run ended on updates", func() {
 		// arrange
-		c := createCredential(t)
-		a := createAgent(t, c)
-		p := createPipeline(t, a)
-		expectedRun, err := runStore.CreateRun(
-			context.Background(), p.PipelineID, "main")
-		assert.NoError(t, err)
+		expectedRun, err := suite.runStore.CreateRun(
+			context.Background(), suite.pipeline.PipelineID, "main")
+		suite.NoError(err)
 
 		// act
 		artifacts := "artifacts.zip"
 		now := time.Now().UTC()
-		updateErr := runStore.UpdateRunEndedOn(
+		updateErr := suite.runStore.UpdateRunEndedOn(
 			context.Background(),
 			expectedRun.RunID,
 			StatusPassed,
 			&artifacts,
 			&now,
 		)
-		r, readErr := runStore.ReadRunByID(
+		r, readErr := suite.runStore.ReadRunByID(
 			context.Background(), expectedRun.RunID)
 
 		// assert
-		assert.NoError(t, updateErr)
-		assert.NoError(t, readErr)
-		assert.NotNil(t, r)
-		assert.Equal(
-			t,
-			now.Format(internal.DBTimestampLayout),
+		suite.NoError(updateErr)
+		suite.NoError(readErr)
+		suite.NotNil(r)
+		suite.Equal(now.Format(internal.DBTimestampLayout),
 			r.EndedOn.Format(internal.DBTimestampLayout),
 		)
-		assert.Equal(t, artifacts, *r.Artifacts)
+		suite.Equal(artifacts, *r.Artifacts)
 	})
 }
 
-func TestRunSQLiteStore_DeleteRun(t *testing.T) {
-	t.Run("success - run is deleted", func(t *testing.T) {
+func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_DeleteRun() {
+	suite.Run("success - run is deleted", func() {
 		// arrange
-		c := createCredential(t)
-		a := createAgent(t, c)
-		p := createPipeline(t, a)
-		expectedRun, err := runStore.CreateRun(
-			context.Background(), p.PipelineID, "main")
-		assert.NoError(t, err)
+		expectedRun, err := suite.runStore.CreateRun(
+			context.Background(), suite.pipeline.PipelineID, "main")
+		suite.NoError(err)
 
 		// act
-		deleteErr := runStore.DeleteRun(
+		deleteErr := suite.runStore.DeleteRun(
 			context.Background(), expectedRun.RunID)
-		r, readErr := runStore.ReadRunByID(
+		r, readErr := suite.runStore.ReadRunByID(
 			context.Background(), expectedRun.RunID)
 
 		// assert
-		assert.NoError(t, deleteErr)
-		assert.Error(t, readErr)
-		assert.True(t, errors.Is(readErr, sql.ErrNoRows))
-		assert.Nil(t, r)
+		suite.NoError(deleteErr)
+		suite.Error(readErr)
+		suite.True(errors.Is(readErr, sql.ErrNoRows))
+		suite.Nil(r)
 	})
 }
 
-func TestRunSQLiteStore_ListPipelineRuns(t *testing.T) {
-	t.Run("success - pipeline runs found", func(t *testing.T) {
+func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_ListPipelineRuns() {
+	suite.Run("success - pipeline runs found", func() {
 		// arrange
-		c := createCredential(t)
-		a := createAgent(t, c)
-		p := createPipeline(t, a)
-		expectedRun, err := runStore.CreateRun(
-			context.Background(), p.PipelineID, "main")
-		assert.NoError(t, err)
+		expectedRun, err := suite.runStore.CreateRun(
+			context.Background(), suite.pipeline.PipelineID, "main")
+		suite.NoError(err)
 
 		// act
-		runs, err := runStore.ListPipelineRuns(
-			context.Background(), p.PipelineID)
+		runs, err := suite.runStore.ListPipelineRuns(
+			context.Background(), suite.pipeline.PipelineID)
 
 		// assert
-		assert.NoError(t, err)
-		assert.True(t, len(runs) >= 1)
-		assert.True(t, slices.ContainsFunc(runs, func(r Run) bool {
+		suite.NoError(err)
+		suite.True(len(runs) >= 1)
+		suite.True(slices.ContainsFunc(runs, func(r Run) bool {
 			return expectedRun.RunID == r.RunID
 		}))
 	})

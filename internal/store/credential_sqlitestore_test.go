@@ -5,20 +5,51 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"slices"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestCredentialSQLiteStore_CreateCredential(t *testing.T) {
-	t.Run("success - credential created", func(t *testing.T) {
+type credentialSQLiteStoreSuite struct {
+	credentialStore *CredentialSQLiteStore
+	db              *sql.DB
+	suite.Suite
+}
+
+func TestCredentialSQLiteStore(t *testing.T) {
+	suite.Run(t, new(credentialSQLiteStoreSuite))
+}
+
+func (suite *credentialSQLiteStoreSuite) SetupSuite() {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		log.Fatal(err)
+	}
+	suite.db = db
+	_, err = db.Exec("PRAGMA foreign_keys = ON;")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	RunMigrations(db, "../../migrations")
+
+	suite.credentialStore = NewCredentialSQLiteStore(db, db)
+}
+
+func (suite *credentialSQLiteStoreSuite) TearDownSuite() {
+	_ = suite.db.Close()
+}
+
+func (suite *credentialSQLiteStoreSuite) TestCredentialSQLiteStore_CreateCredential() {
+	suite.Run("success - credential created", func() {
 		// arrange
-		expectedCredential := createCredential(t)
+		expectedCredential := suite.createCredential()
 
 		// act
-		c, err := credentialStore.CreateCredential(
+		c, err := suite.credentialStore.CreateCredential(
 			context.Background(),
 			expectedCredential.Username,
 			expectedCredential.Description,
@@ -26,120 +57,120 @@ func TestCredentialSQLiteStore_CreateCredential(t *testing.T) {
 		)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, c)
-		assert.NotEqual(t, 0, c.CredentialID)
-		assert.Equal(t, expectedCredential.Username, c.Username)
-		assert.Equal(t, expectedCredential.Description, c.Description)
-		assert.Equal(t, expectedCredential.SSHPrivateKeyHash, c.SSHPrivateKeyHash)
+		suite.NoError(err)
+		suite.NotNil(c)
+		suite.NotEqual(0, c.CredentialID)
+		suite.Equal(expectedCredential.Username, c.Username)
+		suite.Equal(expectedCredential.Description, c.Description)
+		suite.Equal(expectedCredential.SSHPrivateKeyHash, c.SSHPrivateKeyHash)
 	})
 }
 
-func TestCredentialSQLiteStore_ReadCredentialByID(t *testing.T) {
-	t.Run("success - credential found", func(t *testing.T) {
+func (suite *credentialSQLiteStoreSuite) TestCredentialSQLiteStore_ReadCredentialByID() {
+	suite.Run("success - credential found", func() {
 		// arrange
-		expectedCredential := createCredential(t)
+		expectedCredential := suite.createCredential()
 
 		// act
-		c, err := credentialStore.ReadCredentialByID(
+		c, err := suite.credentialStore.ReadCredentialByID(
 			context.Background(),
 			expectedCredential.CredentialID,
 		)
 
 		// assert
-		assert.NoError(t, err)
-		assert.NotNil(t, c)
-		assert.Equal(t, expectedCredential.Username, c.Username)
-		assert.Equal(t, expectedCredential.Description, c.Description)
-		assert.Equal(t, expectedCredential.SSHPrivateKeyHash, c.SSHPrivateKeyHash)
+		suite.NoError(err)
+		suite.NotNil(c)
+		suite.Equal(expectedCredential.Username, c.Username)
+		suite.Equal(expectedCredential.Description, c.Description)
+		suite.Equal(expectedCredential.SSHPrivateKeyHash, c.SSHPrivateKeyHash)
 	})
-	t.Run("failure - credential not found", func(t *testing.T) {
+	suite.Run("failure - credential not found", func() {
 		// arrange
 		var id int64 = 43241
 
 		// act
-		c, err := credentialStore.ReadCredentialByID(context.Background(), id)
+		c, err := suite.credentialStore.ReadCredentialByID(context.Background(), id)
 
 		// assert
-		assert.Error(t, err)
-		assert.True(t, errors.Is(err, sql.ErrNoRows))
-		assert.Nil(t, c)
+		suite.Error(err)
+		suite.True(errors.Is(err, sql.ErrNoRows))
+		suite.Nil(c)
 	})
 }
 
-func TestCredentialSQLiteStore_UpdateCredential(t *testing.T) {
-	t.Run("success - credential updates", func(t *testing.T) {
+func (suite *credentialSQLiteStoreSuite) TestCredentialSQLiteStore_UpdateCredential() {
+	suite.Run("success - credential updates", func() {
 		// arrange
-		credential := createCredential(t)
+		credential := suite.createCredential()
 		username := "updated username"
 		description := "updated description"
 
 		// act
-		updateErr := credentialStore.UpdateCredential(
+		updateErr := suite.credentialStore.UpdateCredential(
 			context.Background(),
 			credential.CredentialID,
 			username,
 			description,
 		)
-		c, readErr := credentialStore.ReadCredentialByID(
+		c, readErr := suite.credentialStore.ReadCredentialByID(
 			context.Background(),
 			credential.CredentialID,
 		)
 
 		// assert
-		assert.NoError(t, updateErr)
-		assert.NoError(t, readErr)
-		assert.Equal(t, username, c.Username)
-		assert.Equal(t, description, c.Description)
+		suite.NoError(updateErr)
+		suite.NoError(readErr)
+		suite.Equal(username, c.Username)
+		suite.Equal(description, c.Description)
 	})
 }
 
-func TestCredentialSQLiteStore_DeleteCredential(t *testing.T) {
-	t.Run("success - credential is deleted", func(t *testing.T) {
+func (suite *credentialSQLiteStoreSuite) TestCredentialSQLiteStore_DeleteCredential() {
+	suite.Run("success - credential is deleted", func() {
 		// arrange
-		expectedCredential := createCredential(t)
+		expectedCredential := suite.createCredential()
 
 		// act
-		deleteErr := credentialStore.DeleteCredential(
+		deleteErr := suite.credentialStore.DeleteCredential(
 			context.Background(),
 			expectedCredential.CredentialID,
 		)
-		c, readErr := credentialStore.ReadCredentialByID(
+		c, readErr := suite.credentialStore.ReadCredentialByID(
 			context.Background(),
 			expectedCredential.CredentialID,
 		)
 
 		// assert
-		assert.NoError(t, deleteErr)
-		assert.Error(t, readErr)
-		assert.Nil(t, c)
+		suite.NoError(deleteErr)
+		suite.Error(readErr)
+		suite.Nil(c)
 	})
 }
 
-func TestCredentialSQLiteStore_ListCredentials(t *testing.T) {
-	t.Run("success - credentials found", func(t *testing.T) {
+func (suite *credentialSQLiteStoreSuite) TestCredentialSQLiteStore_ListCredentials() {
+	suite.Run("success - credentials found", func() {
 		// arrange
-		expectedCredential := createCredential(t)
+		expectedCredential := suite.createCredential()
 
 		// act
-		credentials, err := credentialStore.ListCredentials(context.Background())
+		credentials, err := suite.credentialStore.ListCredentials(context.Background())
 
 		// assert
-		assert.NoError(t, err)
-		assert.True(t, len(credentials) >= 1)
-		assert.True(t, slices.ContainsFunc(credentials, func(c *Credential) bool {
+		suite.NoError(err)
+		suite.True(len(credentials) >= 1)
+		suite.True(slices.ContainsFunc(credentials, func(c *Credential) bool {
 			return c.CredentialID == expectedCredential.CredentialID
 		}))
 	})
 }
 
-func createCredential(t *testing.T) *Credential {
-	c, err := credentialStore.CreateCredential(
+func (suite *credentialSQLiteStoreSuite) createCredential() *Credential {
+	c, err := suite.credentialStore.CreateCredential(
 		context.Background(),
 		fmt.Sprintf("testuser%d", time.Now().UnixNano()),
 		fmt.Sprintf("credential%d", time.Now().UnixNano()),
 		"hash",
 	)
-	assert.NoError(t, err)
+	suite.NoError(err)
 	return c
 }
