@@ -80,7 +80,7 @@ func (store *PipelineSQLiteStore) ReadPipelineRunData(
 	from pipelines p
 	join agents a
 	on p.pipeline_agent_id = a.agent_id
-	join credentials c
+	left join credentials c
 	on a.agent_credential_id = c.credential_id
 	where p.pipeline_id = $1`
 	err := sqlscan.Get(ctx, store.rdb, prd, query, id)

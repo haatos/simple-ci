@@ -41,6 +41,7 @@ func main() {
 		security.NewAESEncrypter([]byte(os.Getenv("SIMPLECI_HASH_KEY"))),
 	)
 	agentSvc := service.NewAgentService(store.NewAgentSQLiteStore(rdb, rwdb), credentialSvc)
+	agentSvc.CreateControllerAgent(context.Background())
 	apiKeySvc := service.NewAPIKeyService(
 		store.NewAPIKeySQLiteStore(rdb, rwdb),
 		service.NewUUIDGen(),

@@ -12,6 +12,7 @@ import (
 )
 
 type AgentServicer interface {
+	CreateControllerAgent(ctx context.Context) (*store.Agent, error)
 	CreateAgent(
 		ctx context.Context,
 		agentCredentialID int64,
@@ -39,6 +40,13 @@ type AgentService struct {
 
 func NewAgentService(s store.AgentStore, cs CredentialServicer) *AgentService {
 	return &AgentService{agentStore: s, credentialService: cs}
+}
+
+func (s *AgentService) CreateControllerAgent(
+	ctx context.Context,
+) (*store.Agent, error) {
+	a, err := s.agentStore.CreateControllerAgent(ctx)
+	return a, err
 }
 
 func (s *AgentService) CreateAgent(
@@ -127,7 +135,7 @@ func (s *AgentService) TestAgentConnection(ctx context.Context, agentID int64) e
 		return err
 	}
 
-	cred, err := s.credentialService.GetCredentialByID(ctx, a.AgentCredentialID)
+	cred, err := s.credentialService.GetCredentialByID(ctx, *a.AgentCredentialID)
 	if err != nil {
 		return err
 	}

@@ -10,8 +10,8 @@ import (
 
 	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/util"
 	"github.com/haatos/simple-ci/internal/testutil"
+	"github.com/haatos/simple-ci/internal/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -349,9 +349,9 @@ func TestPipelineService_GetPipelineRunData(t *testing.T) {
 			AgentID:           a.AgentID,
 			Hostname:          a.Hostname,
 			Workspace:         a.Workspace,
-			CredentialID:      c.CredentialID,
-			Username:          c.Username,
-			SSHPrivateKeyHash: c.SSHPrivateKeyHash,
+			CredentialID:      &c.CredentialID,
+			Username:          &c.Username,
+			SSHPrivateKeyHash: &c.SSHPrivateKeyHash,
 		}
 		mockStore := new(MockPipelineStore)
 		mockStore.On(

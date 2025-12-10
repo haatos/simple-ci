@@ -7,6 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -133,8 +137,12 @@ func (rq *RunQueue) processRun(
 		rq.pathSep = "\\"
 		rq.mkdirCmd = "mkdir"
 		rq.chainOp = " & "
+	case "darwin":
+		rq.pathSep = "/"
+		rq.mkdirCmd = "mkdir -p"
+		rq.chainOp = "; "
 	default:
-		return errors.New("invalid OS type: " + prd.OSType)
+		log.Println("invalid OS type: " + prd.OSType)
 	}
 
 	// update run status to running
@@ -159,67 +167,119 @@ func (rq *RunQueue) processRun(
 	run = r
 	rq.statusCh <- *r
 
-	// connect to agent through SSH
-	client, err := rq.connectSSH(prd.Username, prd.Hostname, prd.SSHPrivateKey)
-	if err != nil {
-		rq.outputCh <- "Error connection through SSH."
-		return err
-	}
-	defer client.Close()
+	if prd.Hostname != "localhost" {
+		// connect to agent through SSH
+		client, err := rq.connectSSH(*prd.Username, prd.Hostname, prd.SSHPrivateKey)
+		if err != nil {
+			rq.outputCh <- "Error connection through SSH."
+			return err
+		}
+		defer client.Close()
 
-	// new session to clone repository
-	if err := rq.cloneRepositoryOnAgent(
-		ctx, client,
-		prd.Repository, prd.Workspace, workdir, r.Branch,
-	); err != nil {
-		return fmt.Errorf("err cloning repository on agent: %+w", err)
-	}
+		// new session to clone repository
+		if err := rq.cloneRepositoryOnAgent(
+			ctx, client,
+			prd.Repository, prd.Workspace, workdir, r.Branch,
+		); err != nil {
+			return fmt.Errorf("err cloning repository on agent: %+w", err)
+		}
 
-	// base command: cd <workdir> &&
-	// new session to read pipeline script
-	ps, err := rq.readPipelineScript(
-		client,
-		prd.Workspace,
-		workdir,
-		prd.Repository,
-		prd.ScriptPath,
-	)
-	if err != nil {
-		return fmt.Errorf("err reading pipeline script: %+w", err)
-	}
+		// base command: cd <workdir> &&
+		// new session to read pipeline script
+		ps, err := rq.readPipelineScriptOnAgent(
+			client,
+			prd.Workspace,
+			workdir,
+			prd.Repository,
+			prd.ScriptPath,
+		)
+		if err != nil {
+			return fmt.Errorf("err reading pipeline script: %+w", err)
+		}
 
-	if err := rq.executePipelineScript(ctx, client, prd.Repository, prd.Workspace, workdir, ps); err != nil {
-		return err
-	}
+		if err := rq.executePipelineScriptOnAgent(ctx, client, prd.Repository, prd.Workspace, workdir, ps); err != nil {
+			return err
+		}
 
-	passMessage := `
+		passMessage := `
 =============================================
 PASS || Executed pipeline steps successfully.
 =============================================
 `
-	rq.outputCh <- passMessage
+		rq.outputCh <- passMessage
 
-	// update run status
-	run.Status = store.StatusPassed
-	run.EndedOn = util.AsPtr(time.Now().UTC())
-	if err := rq.pipelineService.UpdateRunEndedOn(
-		context.Background(),
-		run.RunID,
-		run.Status,
-		run.Artifacts,
-		run.EndedOn,
-	); err != nil {
-		return fmt.Errorf("err updating run ended on: %+w", err)
+		// update run status
+		run.Status = store.StatusPassed
+		run.EndedOn = util.AsPtr(time.Now().UTC())
+		if err := rq.pipelineService.UpdateRunEndedOn(
+			context.Background(),
+			run.RunID,
+			run.Status,
+			run.Artifacts,
+			run.EndedOn,
+		); err != nil {
+			return fmt.Errorf("err updating run ended on: %+w", err)
+		}
+
+		r, err = rq.pipelineService.GetRunByID(context.Background(), run.RunID)
+		if err != nil {
+			return fmt.Errorf("err getting run by id: %+w", err)
+		}
+
+		run = r
+		rq.statusCh <- *r
+		rq.done <- struct{}{}
+	} else {
+		// run on the controller machine
+		if err := rq.cloneRepositoryOnController(
+			ctx, prd.Repository, prd.Workspace, workdir, run.Branch,
+		); err != nil {
+			return fmt.Errorf("err cloning repository on controller: %+v", err)
+		}
+
+		ps, err := rq.readPipelineScriptOnController(
+			prd.Workspace,
+			workdir,
+			prd.Repository,
+			prd.ScriptPath,
+		)
+		if err != nil {
+			return fmt.Errorf("err reading pipeline script: %+w", err)
+		}
+
+		if err := rq.executePipelineScriptOnController(ctx, prd.Repository, prd.Workspace, workdir, ps); err != nil {
+			return err
+		}
+
+		passMessage := `
+=============================================
+PASS || Executed pipeline steps successfully.
+=============================================
+`
+		rq.outputCh <- passMessage
+
+		// update run status
+		run.Status = store.StatusPassed
+		run.EndedOn = util.AsPtr(time.Now().UTC())
+		if err := rq.pipelineService.UpdateRunEndedOn(
+			context.Background(),
+			run.RunID,
+			run.Status,
+			run.Artifacts,
+			run.EndedOn,
+		); err != nil {
+			return fmt.Errorf("err updating run ended on: %+w", err)
+		}
+
+		r, err = rq.pipelineService.GetRunByID(context.Background(), run.RunID)
+		if err != nil {
+			return fmt.Errorf("err getting run by id: %+w", err)
+		}
+
+		run = r
+		rq.statusCh <- *r
+		rq.done <- struct{}{}
 	}
-
-	r, err = rq.pipelineService.GetRunByID(context.Background(), run.RunID)
-	if err != nil {
-		return fmt.Errorf("err getting run by id: %+w", err)
-	}
-
-	run = r
-	rq.statusCh <- *r
-	rq.done <- struct{}{}
 
 	return nil
 }
@@ -253,7 +313,7 @@ func (rq *RunQueue) connectSSH(username, hostname string, privateKey []byte) (*s
 	return client, nil
 }
 
-func (rq *RunQueue) readPipelineScript(
+func (rq *RunQueue) readPipelineScriptOnAgent(
 	client *ssh.Client,
 	workspace, workdir, repository, scriptPath string,
 ) (*PipelineScript, error) {
@@ -287,6 +347,26 @@ func (rq *RunQueue) readPipelineScript(
 	return ps, nil
 }
 
+func (rq *RunQueue) readPipelineScriptOnController(
+	workspace, workdir, repository, scriptPath string,
+) (*PipelineScript, error) {
+	repoDir := repository[strings.LastIndex(repository, "/")+1:]
+	repoDir = strings.TrimSuffix(repoDir, ".git")
+	parts := []string{workspace, workdir, repoDir, scriptPath}
+	b, err := os.ReadFile(filepath.Join(parts...))
+	if err != nil {
+		return nil, err
+	}
+	ps := new(PipelineScript)
+	if err := yaml.Unmarshal(b, ps); err != nil {
+		return nil, fmt.Errorf("err unmarshaling pipeline yaml: %+v", err)
+	}
+
+	rq.outputCh <- "Parsed pipeline script. Starting pipeline execution...\n"
+
+	return ps, nil
+}
+
 func (rq *RunQueue) cloneRepositoryOnAgent(
 	ctx context.Context,
 	client *ssh.Client,
@@ -308,7 +388,26 @@ func (rq *RunQueue) cloneRepositoryOnAgent(
 	return nil
 }
 
-func (rq *RunQueue) executePipelineScript(
+func (rq *RunQueue) cloneRepositoryOnController(
+	ctx context.Context,
+	repository, workspace, workdir, branch string,
+) error {
+	workingDir := filepath.Join(workspace, workdir)
+	if err := os.MkdirAll(workingDir, os.ModePerm); err != nil {
+		return err
+	}
+	cmd := exec.CommandContext(ctx, "git", "clone", "-b", branch, repository)
+	cmd.Dir = workingDir
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	rq.outputCh <- fmt.Sprintf("Cloned repository %s\n", repository)
+
+	return nil
+}
+
+func (rq *RunQueue) executePipelineScriptOnAgent(
 	ctx context.Context,
 	client *ssh.Client,
 	repository, workspace, workdir string,
@@ -320,7 +419,7 @@ func (rq *RunQueue) executePipelineScript(
 		rq.outputCh <- fmt.Sprintf("    |    Executing pipeline stage '%s'\n", stage.Stage)
 		for _, step := range stage.Steps {
 			rq.outputCh <- fmt.Sprintf("    |    |    Executing step '%s'\n", step.Step)
-			if err := rq.executePipelineStep(
+			if err := rq.executePipelineStepOnAgent(
 				ctx,
 				client,
 				time.Duration(step.TimeoutSeconds)*time.Second,
@@ -338,7 +437,35 @@ func (rq *RunQueue) executePipelineScript(
 	return nil
 }
 
-func (rq *RunQueue) executePipelineStep(
+func (rq *RunQueue) executePipelineScriptOnController(
+	ctx context.Context,
+	repository, workspace, workdir string,
+	ps *PipelineScript,
+) error {
+	repoDir := repository[strings.LastIndex(repository, "/")+1:]
+	repoDir = strings.TrimSuffix(repoDir, ".git")
+	for _, stage := range ps.Stages {
+		rq.outputCh <- fmt.Sprintf("    |    Executing pipeline stage '%s'\n", stage.Stage)
+		for _, step := range stage.Steps {
+			rq.outputCh <- fmt.Sprintf("    |    |    Executing step '%s'\n", step.Step)
+			if err := rq.executePipelineStepOnController(
+				ctx,
+				time.Duration(step.TimeoutSeconds)*time.Second,
+				workspace,
+				workdir,
+				repoDir,
+				step.Script,
+			); err != nil {
+				return err
+			}
+			rq.outputCh <- "    |    |    STEP PASSED\n"
+		}
+		rq.outputCh <- "    |    STAGE PASSED\n"
+	}
+	return nil
+}
+
+func (rq *RunQueue) executePipelineStepOnAgent(
 	ctx context.Context,
 	client *ssh.Client,
 	timeout time.Duration,
@@ -416,6 +543,85 @@ func (rq *RunQueue) executePipelineStep(
 		return err
 	case <-ctx.Done():
 		sess.Signal(ssh.SIGINT)
+		message := "step execution cancelled by user"
+		rq.outputCh <- message
+		return RunCancelError{Message: message}
+	case err := <-doneCh:
+		return err
+	}
+}
+
+func (rq *RunQueue) executePipelineStepOnController(
+	ctx context.Context,
+	timeout time.Duration,
+	workspace, workdir, repoDir, script string,
+) error {
+	doneCh := make(chan error, 1)
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	go func() {
+		defer cancel()
+		var cmd *exec.Cmd
+		if runtime.GOOS == "windows" {
+			cmd = exec.CommandContext(ctx, "powershell", "-Command", script)
+		} else {
+			cmd = exec.CommandContext(ctx, "sh", "-c", script)
+		}
+		cmd.Dir = filepath.Join(workspace, workdir, repoDir)
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			doneCh <- errors.Join(fmt.Errorf("err getting stdout pipe for command %s", cmd), err)
+			return
+		}
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			doneCh <- errors.Join(fmt.Errorf("err getting stderr pipe for command %s", cmd), err)
+			return
+		}
+
+		if err := cmd.Start(); err != nil {
+			doneCh <- errors.Join(fmt.Errorf("err starting command %s", cmd), err)
+			return
+		}
+
+		// scan output produced by the command an pass it to output channel and append to total output
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			scanner := bufio.NewScanner(stdout)
+			for scanner.Scan() {
+				text := scanner.Text()
+				rq.outputCh <- text + "\n"
+			}
+		})
+		wg.Go(func() {
+			scanner := bufio.NewScanner(stderr)
+			for scanner.Scan() {
+				text := scanner.Text()
+				rq.outputCh <- text + "\n"
+			}
+		})
+
+		// wait for command to finish
+		if err := cmd.Wait(); err != nil {
+			doneCh <- errors.Join(fmt.Errorf("err waiting for command to finish %s", cmd), err)
+			return
+		}
+
+		wg.Wait()
+
+		doneCh <- nil
+	}()
+
+	select {
+	case <-timeoutCtx.Done():
+		err := fmt.Errorf(
+			"step execution timed out in %d seconds, script: '%s'",
+			int(timeout.Seconds()),
+			script,
+		)
+		message := err.Error()
+		rq.outputCh <- message
+		return err
+	case <-ctx.Done():
 		message := "step execution cancelled by user"
 		rq.outputCh <- message
 		return RunCancelError{Message: message}

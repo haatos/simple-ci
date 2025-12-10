@@ -24,11 +24,13 @@ templ AgentUpdateForm(agent *store.Agent, credentials []*store.Credential) {
 		hx-patch="/app/agents"
 		hx-swap="outerHTML"
 	>
-		@components.Select(components.SelectProps{
-			Label:   "Credentials",
-			Name:    "agent_credential_id",
-			Options: agentCredentialIDSelectOptions(credentials, agent.AgentCredentialID),
-		})
+		if agent.AgentCredentialID != nil {
+			@components.Select(components.SelectProps{
+				Label:   "Credentials",
+				Name:    "agent_credential_id",
+				Options: agentCredentialIDSelectOptions(credentials, agent.AgentCredentialID),
+			})
+		}
 		@components.Input(components.InputProps{
 			Label:       "Name",
 			Name:        "name",
@@ -40,6 +42,7 @@ templ AgentUpdateForm(agent *store.Agent, credentials []*store.Credential) {
 			Name:        "hostname",
 			Placeholder: "Enter a hostname...",
 			Value:       agent.Hostname,
+			ReadOnly:    agent.Hostname == "localhost",
 		})
 		@components.Input(components.InputProps{
 			Label:       "Workspace",

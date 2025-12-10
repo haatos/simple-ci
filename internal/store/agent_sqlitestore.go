@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"runtime"
 
 	"github.com/georgysavva/scany/v2/sqlscan"
 )
@@ -15,13 +16,49 @@ func NewAgentSQLiteStore(rdb, rwdb *sql.DB) *AgentSQLiteStore {
 	return &AgentSQLiteStore{rdb, rwdb}
 }
 
+func (store *AgentSQLiteStore) CreateControllerAgent(
+	ctx context.Context,
+) (*Agent, error) {
+	var osType string
+	if runtime.GOOS == "windows" {
+		osType = "windows"
+	} else {
+		osType = "unix"
+	}
+	a := &Agent{
+		Name:        "Localhost",
+		Hostname:    "localhost",
+		Workspace:   "runs",
+		Description: "Agent to run pipelines on the controller machine.",
+		OSType:      osType,
+	}
+	query := `insert into agents (
+		name,
+		hostname,
+		workspace,
+		description,
+		os_type
+	)
+	values ($1, $2, $3, $4, $5)
+	returning agent_id`
+	err := sqlscan.Get(
+		ctx, store.rwdb, a, query,
+		a.Name,
+		a.Hostname,
+		a.Workspace,
+		a.Description,
+		a.OSType,
+	)
+	return a, err
+}
+
 func (store *AgentSQLiteStore) CreateAgent(
 	ctx context.Context,
 	credentialID int64,
 	name, hostname, workspace, description, osType string,
 ) (*Agent, error) {
 	a := &Agent{
-		AgentCredentialID: credentialID,
+		AgentCredentialID: &credentialID,
 		Name:              name,
 		Hostname:          hostname,
 		Workspace:         workspace,

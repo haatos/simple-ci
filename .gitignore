@@ -4,6 +4,6 @@ bin/
 db.sqlite*
 node_modules/
 *_templ.go
-public/static/css/tw.css
+internal/assets/public/static/css/tw.css
 artifacts/
 config.json

@@ -25,13 +25,13 @@ type PipelineRunData struct {
 	PipelineID        int64
 	AgentID           int64
 	OSType            string
-	CredentialID      int64
+	CredentialID      *int64
 	Repository        string
 	ScriptPath        string
 	Hostname          string
 	Workspace         string
-	Username          string
-	SSHPrivateKeyHash string
+	Username          *string
+	SSHPrivateKeyHash *string
 	SSHPrivateKey     []byte
 }
 

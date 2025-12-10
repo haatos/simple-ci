@@ -185,11 +185,14 @@ func (s *PipelineService) GetPipelineRunData(
 		return nil, err
 	}
 
-	privateKey, err := s.credentialService.DecryptAES(prd.SSHPrivateKeyHash)
-	if err != nil {
-		return nil, err
+	if prd.SSHPrivateKeyHash != nil {
+		privateKey, err := s.credentialService.DecryptAES(*prd.SSHPrivateKeyHash)
+		if err != nil {
+			return nil, err
+		}
+		prd.SSHPrivateKey = privateKey
 	}
-	prd.SSHPrivateKey = privateKey
+
 	return prd, nil
 }
 
@@ -312,7 +315,7 @@ func (s *PipelineService) CollectPipelineRunArtifacts(
 	if err != nil {
 		return "", err
 	}
-	c, err := s.credentialService.GetCredentialByID(ctx, a.AgentCredentialID)
+	c, err := s.credentialService.GetCredentialByID(ctx, *a.AgentCredentialID)
 	if err != nil {
 		return "", err
 	}

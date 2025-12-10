@@ -1,4 +1,4 @@
-package components 
+package components
 
 type InputProps struct {
 	// common
@@ -32,7 +32,9 @@ type InputProps struct {
 }
 
 templ Input(props InputProps) {
-	<fieldset class="fieldset">
+	<fieldset
+		class="fieldset"
+	>
 		if props.Label != "" {
 			<legend class="fieldset-legend">{ props.Label }</legend>
 		}
@@ -44,7 +46,7 @@ templ Input(props InputProps) {
 				templ.KV("input-xs", props.Size == "xs"),
 				templ.KV("input-sm", props.Size == "sm"),
 				templ.KV("input-lg", props.Size == "lg"),
-				templ.KV("input-xl", props.Size == "xl"),
+				templ.KV("opacity-90", props.ReadOnly),
 			}
 			if props.DisabledMessage != "" {
 				data-tip={ props.DisabledMessage }
@@ -54,7 +56,10 @@ templ Input(props InputProps) {
 				@props.Icon
 			}
 			<input
-				class="w-full"
+				class={
+					"w-full",
+					templ.KV("opacity-60", props.ReadOnly),
+				}
 				name={ props.Name }
 				if props.Type == "" {
 					type="text"

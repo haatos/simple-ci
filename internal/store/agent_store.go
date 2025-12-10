@@ -4,7 +4,7 @@ import "context"
 
 type Agent struct {
 	AgentID           int64
-	AgentCredentialID int64
+	AgentCredentialID *int64
 	Name              string
 	Hostname          string
 	Workspace         string
@@ -13,6 +13,7 @@ type Agent struct {
 }
 
 type AgentStore interface {
+	CreateControllerAgent(context.Context) (*Agent, error)
 	CreateAgent(context.Context, int64, string, string, string, string, string) (*Agent, error)
 	ReadAgentByID(context.Context, int64) (*Agent, error)
 	UpdateAgent(context.Context, int64, int64, string, string, string, string, string) error

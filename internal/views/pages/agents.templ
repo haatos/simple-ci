@@ -11,7 +11,7 @@ templ AgentsPage(user *store.User, agents []*store.Agent, credentials []*store.C
 	}
 }
 
-func agentCredentialIDSelectOptions(credentials []*store.Credential, credentialID int64) []components.SelectOption {
+func agentCredentialIDSelectOptions(credentials []*store.Credential, credentialID *int64) []components.SelectOption {
 	options := make([]components.SelectOption, 0, len(credentials)+1)
 	options = append(
 		options,
@@ -23,7 +23,7 @@ func agentCredentialIDSelectOptions(credentials []*store.Credential, credentialI
 			components.SelectOption{
 				Label:    fmt.Sprintf("%s - %.40s", c.Username, c.Description),
 				Value:    fmt.Sprintf("%d", c.CredentialID),
-				Selected: c.CredentialID == credentialID,
+				Selected: credentialID != nil && c.CredentialID == *credentialID,
 			})
 	}
 	return options
@@ -68,7 +68,7 @@ templ addNewAgentForm(credentials []*store.Credential) {
 		@components.Select(components.SelectProps{
 			Label:    "Credentials*",
 			Name:     "agent_credential_id",
-			Options:  agentCredentialIDSelectOptions(credentials, 0),
+			Options:  agentCredentialIDSelectOptions(credentials, nil),
 			Required: true,
 		})
 		@components.Select(components.SelectProps{
@@ -123,12 +123,12 @@ templ addAgentModalButton(attrs templ.Attributes, credentialCount int) {
 	if credentialCount == 0 {
 		@components.Tooltip(components.TooltipProps{Tip: "Add credentials first"}) {
 			<div { attrs... } class="btn btn-outline">
-				Add agent 
+				Add agent
 			</div>
 		}
 	} else {
 		<div { attrs... } class="btn btn-outline">
-			Add agent 
+			Add agent
 		</div>
 	}
 }

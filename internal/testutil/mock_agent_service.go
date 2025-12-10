@@ -11,6 +11,16 @@ type MockAgentService struct {
 	mock.Mock
 }
 
+func (m *MockAgentService) CreateControllerAgent(
+	ctx context.Context,
+) (*store.Agent, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.Agent), args.Error(1)
+}
+
 func (m *MockAgentService) CreateAgent(
 	ctx context.Context,
 	credentialID int64,

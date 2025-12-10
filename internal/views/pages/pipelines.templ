@@ -115,12 +115,12 @@ templ addPipelineModalButton(attrs templ.Attributes, agentCount int) {
 	if agentCount == 0 {
 		@components.Tooltip(components.TooltipProps{Tip: "Add agents first"}) {
 			<div { attrs... } class="btn btn-outline">
-				Add pipeline 
+				Add pipeline
 			</div>
 		}
 	} else {
 		<div { attrs... } class="btn btn-outline">
-			Add pipeline 
+			Add pipeline
 		</div>
 	}
 }
@@ -294,14 +294,14 @@ templ PipelineRuns(runs []store.Run) {
 				{ views.NavigationLinkAttrs(fmt.Sprintf("/app/pipelines/%d/runs", runs[0].RunPipelineID))... }
 				class="flex justify-center items-center btn btn-xs btn-ghost w-full font-bold"
 			>
-				View all runs 
+				View all runs
 				<span class="ml-2">
 					@views.ExternalIcon("h-3 w-3")
 				</span>
 			</a>
 		</div>
 	} else {
-		<div></div>
+		<div class="h-[200px]"></div>
 	}
 }
 
@@ -498,7 +498,7 @@ templ PipelineCardContent(p *store.Pipeline) {
 		<p>Script: { p.ScriptPath }</p>
 		<p>{ p.Description }</p>
 		<p>
-			Schedule: 
+			Schedule:
 			if p.Schedule != nil {
 				<span>{ *p.Schedule }</span>
 			} else {
