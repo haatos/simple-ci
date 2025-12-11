@@ -2,15 +2,15 @@ stages:
   - stage: Setup
     steps:
       - step: Download deps
-        script: 'sleep 5; mkdir output; touch output/data.log; echo "downloading deps" > output/data.log'
+        script: 'sleep 5 && mkdir output && touch output/data.log && echo "downloading deps" > output/data.log'
         timeout_seconds: 8
       - step: Install deps
-        script: 'sleep 5; echo "installing deps" > output/data.log'
+        script: 'sleep 5 && echo "installing deps" > output/data.log'
         timeout_seconds: 8
     artifacts: output
   - stage: Run
     steps:
       - step: Run tests
-        script: 'sleep 5; echo "Running tests..." > output/data.log'
+        script: 'sleep 5 && echo "Running tests..." > output/data.log'
         timeout_seconds: 8
     artifacts: output
