@@ -40,6 +40,19 @@ func agentOSTypeSelectOptions() []components.SelectOption {
 
 templ AgentsMain(agents []*store.Agent, credentials []*store.Credential) {
 	<main class="w-full p-4 border border-base-content/20 rounded-box space-y-4">
+		@components.AccordionRow(
+			components.AccordionRowProps{
+				Label: "Agents define remote machines that are used to run pipelines",
+				Name:  "AgentInfo",
+			},
+		) {
+			<div class="text-base-content/75 text-sm space-y-1 mt-2">
+				<p><strong>Credentials</strong> define SSH private key that is used to access the remote machine.</p>
+				<p><strong>Hostname</strong> is the IP address or domain of the remote machine.</p>
+				<p><strong>Workspace</strong> is a directory on the remote machine used to store pipeline run data.</p>
+				<p><strong>OS type</strong> defines how specific commands (such as creating directories) are run on the remote machine.</p>
+			</div>
+		}
 		@components.Modal(
 			components.ModalProps{
 				ID: "add_agent_modal",
@@ -122,12 +135,12 @@ templ addNewAgentForm(credentials []*store.Credential) {
 templ addAgentModalButton(attrs templ.Attributes, credentialCount int) {
 	if credentialCount == 0 {
 		@components.Tooltip(components.TooltipProps{Tip: "Add credentials first"}) {
-			<div { attrs... } class="btn btn-outline">
+			<div { attrs... } class="btn btn-outline w-full max-w-2xs">
 				Add agent
 			</div>
 		}
 	} else {
-		<div { attrs... } class="btn btn-outline">
+		<div { attrs... } class="btn btn-outline w-full max-w-2xs">
 			Add agent
 		</div>
 	}

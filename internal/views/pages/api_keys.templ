@@ -13,14 +13,31 @@ templ APIKeysPage(user *store.User, apiKeys []*store.APIKey) {
 
 templ APIKeysMain(apiKeys []*store.APIKey) {
 	<main class="w-full p-4 border border-base-content/20 rounded-box space-y-4">
-		<button
-			hx-post="/app/api-keys"
-			hx-swap="beforeend"
-			hx-target="#api-keys-table"
-			class="btn btn-outline"
-		>
-			Generate API Key
-		</button>
+		<div class="w-full flex flex-col space-y-4">
+			@components.AccordionRow(
+				components.AccordionRowProps{
+					Label: "Generate API keys to authorize triggering pipeline runs through webhooks",
+					Name:  "APIKeysInfo",
+				},
+			) {
+				<div class="space-y-1">
+					<p class="text-base-content/75 text-sm">
+						API keys can be used to trigger pipeline runs through a POST request to the <strong>/app/pipelines/{ "<pipeline id>" }/webhook-trigger/{ "<branch>" }</strong> endpoint.
+					</p>
+					<p class="text-base-content/75 text-sm">
+						For example <strong>/app/pipelines/1/webhook-trigger/main</strong> would trigger a run using the <i>main</i> branch for pipeline with ID 1.
+					</p>
+				</div>
+			}
+			<button
+				hx-post="/app/api-keys"
+				hx-swap="beforeend"
+				hx-target="#api-keys-table"
+				class="btn btn-outline max-w-3xs"
+			>
+				Generate API Key
+			</button>
+		</div>
 		@components.Table(
 			"api-keys-table",
 			[]templ.Component{

@@ -31,18 +31,31 @@ func pipelineAgentIDSelectOptions(agents []*store.Agent, agentID int64) []compon
 
 templ PipelinesMain(pipelines []*store.Pipeline, agents []*store.Agent) {
 	<main class="w-full p-4 border border-base-content/20 rounded-box space-y-4">
-		@components.Modal(
-			components.ModalProps{
-				ID: "add_pipeline_modal",
-				Label: addPipelineModalButton(
-					templ.Attributes{
-						"onclick": "add_pipeline_modal.showModal()",
-					}, len(agents),
-				),
-			}) {
-			<h2 class="card-title">Add new pipeline</h2>
-			@addNewPipelineForm(agents)
-		}
+		<div class="flex flex-col space-y-4">
+			@components.AccordionRow(
+				components.AccordionRowProps{
+					Label: "Pipelines define repositories and pipeline script paths within a repository to run",
+					Name:  "PipelinesInfo",
+				},
+			) {
+				<div class="text-base-content/75 text-sm space-y-1 mt-2">
+					<p><strong>Repository</strong> is a path to the git repository that will be cloned when running the pipeline. E.g. github.com/haatos/simple-ci.git.</p>
+					<p><strong>Script path</strong> defines a path to a pipeline script within the git repository.</p>
+				</div>
+			}
+			@components.Modal(
+				components.ModalProps{
+					ID: "add_pipeline_modal",
+					Label: addPipelineModalButton(
+						templ.Attributes{
+							"onclick": "add_pipeline_modal.showModal()",
+						}, len(agents),
+					),
+				}) {
+				<h2 class="card-title">Add new pipeline</h2>
+				@addNewPipelineForm(agents)
+			}
+		</div>
 		<div id="pipelines-grid" class="grid grid-cols-1 xl:grid-cols-2 gap-4">
 			for _, p := range pipelines {
 				@PipelineCard(p)
@@ -114,12 +127,12 @@ templ addNewPipelineForm(agents []*store.Agent) {
 templ addPipelineModalButton(attrs templ.Attributes, agentCount int) {
 	if agentCount == 0 {
 		@components.Tooltip(components.TooltipProps{Tip: "Add agents first"}) {
-			<div { attrs... } class="btn btn-outline">
+			<div { attrs... } class="btn btn-outline max-w-2xs">
 				Add pipeline
 			</div>
 		}
 	} else {
-		<div { attrs... } class="btn btn-outline">
+		<div { attrs... } class="btn btn-outline max-w-2xs">
 			Add pipeline
 		</div>
 	}

@@ -13,7 +13,22 @@ templ UsersPage(user *store.User, users []*store.User) {
 
 templ UsersPageMain(users []*store.User) {
 	<main class="w-full p-4 border border-base-content/20 rounded-box space-y-4">
-		<div>
+		<div class="flex flex-col space-y-4">
+			@components.AccordionRow(
+				components.AccordionRowProps{
+					Label: "Add new users to manage and operate SimpliCI",
+					Name:  "UsersInfo",
+				},
+			) {
+				<div class="space-y-1 text-base-content/75 text-sm mt-2">
+					<p>
+						<strong>Operators</strong> can add, update delete agents and pipelines
+					</p>
+					<p>
+						<strong>Admins</strong> can add, update and delete credentials, agents and pipelines
+					</p>
+				</div>
+			}
 			@components.Modal(
 				components.ModalProps{
 					ID: "add_user_modal",
@@ -31,7 +46,7 @@ templ UsersPageMain(users []*store.User) {
 }
 
 templ addUserModalButton(attrs templ.Attributes) {
-	<button { attrs... } class="btn btn-outline">
+	<button { attrs... } class="btn btn-outline w-2xs">
 		Add user
 	</button>
 }
