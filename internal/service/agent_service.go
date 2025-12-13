@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/haatos/simple-ci/internal/security"
 	"github.com/haatos/simple-ci/internal/store"
 	"golang.org/x/crypto/ssh"
 )
@@ -33,13 +34,17 @@ type AgentServicer interface {
 }
 
 type AgentService struct {
-	agentStore store.AgentStore
-
-	credentialService CredentialServicer
+	agentStore      store.AgentStore
+	credentialStore store.CredentialStore
+	aesEncrypter    *security.AESEncrypter
 }
 
-func NewAgentService(s store.AgentStore, cs CredentialServicer) *AgentService {
-	return &AgentService{agentStore: s, credentialService: cs}
+func NewAgentService(
+	s store.AgentStore,
+	cs store.CredentialStore,
+	aesEncrypter *security.AESEncrypter,
+) *AgentService {
+	return &AgentService{agentStore: s, credentialStore: cs, aesEncrypter: aesEncrypter}
 }
 
 func (s *AgentService) CreateControllerAgent(
@@ -79,7 +84,7 @@ func (s *AgentService) GetAgentAndCredentials(
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, err
 	}
-	credentials, err := s.credentialService.ListCredentials(ctx)
+	credentials, err := s.credentialStore.ListCredentials(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -98,7 +103,7 @@ func (s *AgentService) ListAgentsAndCredentials(
 		return nil, nil, err
 	}
 
-	credentials, err := s.credentialService.ListCredentials(ctx)
+	credentials, err := s.credentialStore.ListCredentials(ctx)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, err
 	}
@@ -135,12 +140,12 @@ func (s *AgentService) TestAgentConnection(ctx context.Context, agentID int64) e
 		return err
 	}
 
-	cred, err := s.credentialService.GetCredentialByID(ctx, *a.AgentCredentialID)
+	cred, err := s.credentialStore.ReadCredentialByID(ctx, *a.AgentCredentialID)
 	if err != nil {
 		return err
 	}
 
-	privateKey, err := s.credentialService.DecryptAES(cred.SSHPrivateKeyHash)
+	privateKey, err := s.aesEncrypter.DecryptAES(cred.SSHPrivateKeyHash)
 	if err != nil {
 		return err
 	}

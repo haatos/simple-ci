@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -79,13 +78,14 @@ func TestAgentService_CreateAgent(t *testing.T) {
 		mockStore.On(
 			"CreateAgent",
 			context.Background(),
+			*expectedAgent.AgentCredentialID,
 			expectedAgent.Name,
 			expectedAgent.Hostname,
 			expectedAgent.Workspace,
 			expectedAgent.Description,
 			expectedAgent.OSType,
 		).Return(expectedAgent, nil)
-		agentService := NewAgentService(mockStore, nil)
+		agentService := NewAgentService(mockStore, nil, nil)
 
 		// act
 		agent, err := agentService.CreateAgent(
@@ -121,7 +121,7 @@ func TestAgentService_GetAgentByID(t *testing.T) {
 			context.Background(),
 			expectedAgent.AgentID,
 		).Return(expectedAgent, nil)
-		agentService := NewAgentService(mockStore, nil)
+		agentService := NewAgentService(mockStore, nil, nil)
 
 		// act
 		agent, err := agentService.GetAgentByID(context.Background(), expectedAgent.AgentID)
@@ -138,17 +138,17 @@ func TestAgentService_GetAgentAndCredentials(t *testing.T) {
 		_, _, credential := generateCredential()
 		expectedAgent := generateAgent(credential.CredentialID)
 		expectedCredentials := []*store.Credential{credential}
-		mockStore := new(MockAgentStore)
-		mockStore.On(
+		mockAgentStore := new(MockAgentStore)
+		mockAgentStore.On(
 			"ReadAgentByID",
 			context.Background(),
 			expectedAgent.AgentID,
 		).Return(expectedAgent, nil)
-		mockService := new(testutil.MockCredentialService)
-		mockService.On(
+		mockCredentialStore := new(MockCredentialStore)
+		mockCredentialStore.On(
 			"ListCredentials", context.Background(),
 		).Return(expectedCredentials, nil)
-		agentService := NewAgentService(mockStore, mockService)
+		agentService := NewAgentService(mockAgentStore, mockCredentialStore, nil)
 
 		// act
 		agent, credentials, err := agentService.GetAgentAndCredentials(
@@ -174,14 +174,14 @@ func TestAgentService_UpdateAgent(t *testing.T) {
 			"UpdateAgent",
 			context.Background(),
 			expectedAgent.AgentID,
-			expectedAgent.AgentCredentialID,
+			*expectedAgent.AgentCredentialID,
 			expectedAgent.Name,
 			expectedAgent.Hostname,
 			expectedAgent.Workspace,
 			expectedAgent.Description,
 			expectedAgent.OSType,
 		).Return(nil)
-		agentService := NewAgentService(mockStore, nil)
+		agentService := NewAgentService(mockStore, nil, nil)
 
 		// act
 		err := agentService.UpdateAgent(
@@ -208,7 +208,7 @@ func TestAgentService_DeleteAgent(t *testing.T) {
 		mockStore.On(
 			"DeleteAgent", context.Background(), agentID,
 		).Return(nil)
-		agentService := NewAgentService(mockStore, nil)
+		agentService := NewAgentService(mockStore, nil, nil)
 
 		// act
 		err := agentService.DeleteAgent(context.Background(), agentID)
@@ -228,7 +228,7 @@ func TestAgentService_ListAgents(t *testing.T) {
 		mockStore.On(
 			"ListAgents", context.Background(),
 		).Return(expectedAgents, nil)
-		agentService := NewAgentService(mockStore, nil)
+		agentService := NewAgentService(mockStore, nil, nil)
 
 		// act
 		agents, err := agentService.ListAgents(context.Background())
@@ -250,11 +250,11 @@ func TestAgentService_ListAgentsAndCredentials(t *testing.T) {
 		mockStore.On(
 			"ListAgents", context.Background(),
 		).Return(expectedAgents, nil)
-		mockService := new(testutil.MockCredentialService)
+		mockService := new(MockCredentialStore)
 		mockService.On(
 			"ListCredentials", context.Background(),
 		).Return(expectedCredentials, nil)
-		agentService := NewAgentService(mockStore, mockService)
+		agentService := NewAgentService(mockStore, mockService, nil)
 
 		// act
 		agents, credentials, err := agentService.ListAgentsAndCredentials(

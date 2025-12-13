@@ -161,17 +161,18 @@ func TestAgentsHandler_GetAgentPage(t *testing.T) {
 func TestAgentsHandler_PatchAgent(t *testing.T) {
 	t.Run("success - agent updated", func(t *testing.T) {
 		// arrange
-		agent := generateAgent(0)
+		credential := generateCredential()
+		agent := generateAgent(credential.CredentialID)
 		mockAgentService := new(testutil.MockAgentService)
 		mockAgentService.On(
 			"UpdateAgent",
 			context.Background(),
-			agent.AgentID, agent.AgentCredentialID,
+			agent.AgentID, credential.CredentialID,
 			agent.Name, agent.Hostname, agent.Workspace, agent.Description, agent.OSType,
 		).Return(nil)
 
 		formData := url.Values{}
-		formData.Set("agent_credential_id", fmt.Sprintf("%d", agent.AgentCredentialID))
+		formData.Set("agent_credential_id", fmt.Sprintf("%d", credential.CredentialID))
 		formData.Set("name", agent.Name)
 		formData.Set("hostname", agent.Hostname)
 		formData.Set("workspace", agent.Workspace)
@@ -202,13 +203,14 @@ func TestAgentsHandler_PatchAgent(t *testing.T) {
 	})
 	t.Run("failure - agent not found", func(t *testing.T) {
 		// arrange
-		agent := generateAgent(0)
+		credential := generateCredential()
+		agent := generateAgent(credential.CredentialID)
 		mockAgentService := new(testutil.MockAgentService)
 		mockAgentService.On(
 			"UpdateAgent",
 			context.Background(),
 			agent.AgentID,
-			agent.AgentCredentialID,
+			credential.CredentialID,
 			agent.Name,
 			agent.Hostname,
 			agent.Workspace,
@@ -217,7 +219,7 @@ func TestAgentsHandler_PatchAgent(t *testing.T) {
 		).Return(sql.ErrNoRows)
 
 		formData := url.Values{}
-		formData.Set("agent_credential_id", fmt.Sprintf("%d", agent.AgentCredentialID))
+		formData.Set("agent_credential_id", fmt.Sprintf("%d", credential.CredentialID))
 		formData.Set("name", agent.Name)
 		formData.Set("hostname", agent.Hostname)
 		formData.Set("workspace", agent.Workspace)

@@ -155,9 +155,9 @@ func (suite *pipelineSQLiteStoreSuite) TestPipelineSQLiteStore_ReadPipelineRunDa
 		suite.Equal(suite.agent.AgentID, prd.AgentID)
 		suite.Equal(suite.agent.Hostname, prd.Hostname)
 		suite.Equal(suite.agent.Workspace, prd.Workspace)
-		suite.Equal(suite.credential.CredentialID, prd.CredentialID)
-		suite.Equal(suite.credential.Username, prd.Username)
-		suite.Equal(suite.credential.SSHPrivateKeyHash, prd.SSHPrivateKeyHash)
+		suite.Equal(suite.credential.CredentialID, *prd.CredentialID)
+		suite.Equal(suite.credential.Username, *prd.Username)
+		suite.Equal(suite.credential.SSHPrivateKeyHash, *prd.SSHPrivateKeyHash)
 	})
 	suite.Run("failure - pipeline run data is not found", func() {
 		// arrange

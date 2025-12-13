@@ -18,6 +18,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/google/uuid"
 	"github.com/haatos/simple-ci/internal"
+	"github.com/haatos/simple-ci/internal/security"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/pkg/sftp"
@@ -85,12 +86,13 @@ type PipelineServicer interface {
 }
 
 type PipelineService struct {
-	pipelineStore     store.PipelineStore
-	runStore          store.RunStore
-	credentialService CredentialServicer
-	agentService      AgentServicer
-	apiKeyService     APIKeyServicer
-	scheduler         gocron.Scheduler
+	pipelineStore   store.PipelineStore
+	runStore        store.RunStore
+	credentialStore store.CredentialStore
+	agentService    store.AgentStore
+	apiKeyService   APIKeyServicer
+	scheduler       gocron.Scheduler
+	aesEncrypter    security.Encrypter
 
 	mu     sync.Mutex
 	queues map[int64]*RunQueue
@@ -99,19 +101,21 @@ type PipelineService struct {
 func NewPipelineService(
 	pipelineStore store.PipelineStore,
 	runStore store.RunStore,
-	credentialService CredentialServicer,
-	agentService AgentServicer,
+	credentialStore store.CredentialStore,
+	agentStore store.AgentStore,
 	apiKeyService APIKeyServicer,
 	scheduler gocron.Scheduler,
+	aesEncrypter security.Encrypter,
 ) *PipelineService {
 	return &PipelineService{
-		pipelineStore:     pipelineStore,
-		runStore:          runStore,
-		credentialService: credentialService,
-		agentService:      agentService,
-		apiKeyService:     apiKeyService,
-		scheduler:         scheduler,
-		queues:            make(map[int64]*RunQueue),
+		pipelineStore:   pipelineStore,
+		runStore:        runStore,
+		credentialStore: credentialStore,
+		agentService:    agentStore,
+		apiKeyService:   apiKeyService,
+		scheduler:       scheduler,
+		aesEncrypter:    aesEncrypter,
+		queues:          make(map[int64]*RunQueue),
 	}
 }
 
@@ -186,7 +190,7 @@ func (s *PipelineService) GetPipelineRunData(
 	}
 
 	if prd.SSHPrivateKeyHash != nil {
-		privateKey, err := s.credentialService.DecryptAES(*prd.SSHPrivateKeyHash)
+		privateKey, err := s.aesEncrypter.DecryptAES(*prd.SSHPrivateKeyHash)
 		if err != nil {
 			return nil, err
 		}
@@ -311,11 +315,11 @@ func (s *PipelineService) CollectPipelineRunArtifacts(
 	if err != nil {
 		return "", err
 	}
-	a, err := s.agentService.GetAgentByID(ctx, p.PipelineAgentID)
+	a, err := s.agentService.ReadAgentByID(ctx, p.PipelineAgentID)
 	if err != nil {
 		return "", err
 	}
-	c, err := s.credentialService.GetCredentialByID(ctx, *a.AgentCredentialID)
+	c, err := s.credentialStore.ReadCredentialByID(ctx, *a.AgentCredentialID)
 	if err != nil {
 		return "", err
 	}
@@ -337,7 +341,7 @@ func (s *PipelineService) CollectPipelineRunArtifacts(
 	repoDir = strings.TrimSuffix(repoDir, ".git")
 	baseDir := path.Join(a.Workspace, *r.WorkingDirectory, repoDir)
 
-	privateKey, err := s.credentialService.DecryptAES(c.SSHPrivateKeyHash)
+	privateKey, err := s.aesEncrypter.DecryptAES(c.SSHPrivateKeyHash)
 	if err != nil {
 		return "", err
 	}

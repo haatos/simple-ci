@@ -34,25 +34,34 @@ func main() {
 	scheduler := service.NewScheduler()
 	defer scheduler.Shutdown()
 
+	userStore := store.NewUserSQLiteStore(rdb, rwdb)
+	credentialStore := store.NewCredentialSQLiteStore(rdb, rwdb)
+	agentStore := store.NewAgentSQLiteStore(rdb, rwdb)
+	pipelineStore := store.NewPipelineSQLiteStore(rdb, rwdb)
+	runStore := store.NewRunSQLiteStore(rdb, rwdb)
+	apiKeyStore := store.NewAPIKeySQLiteStore(rdb, rwdb)
+	aesEncrypter := security.NewAESEncrypter([]byte(os.Getenv("SIMPLECI_HASH_KEY")))
+
 	cookieSvc := service.NewCookieService(hashKey, blockKey)
-	userSvc := service.NewUserService(store.NewUserSQLiteStore(rdb, rwdb))
+	userSvc := service.NewUserService(userStore)
 	credentialSvc := service.NewCredentialService(
-		store.NewCredentialSQLiteStore(rdb, rwdb),
-		security.NewAESEncrypter([]byte(os.Getenv("SIMPLECI_HASH_KEY"))),
+		credentialStore,
+		aesEncrypter,
 	)
-	agentSvc := service.NewAgentService(store.NewAgentSQLiteStore(rdb, rwdb), credentialSvc)
-	agentSvc.CreateControllerAgent(context.Background())
+	agentSvc := service.NewAgentService(agentStore, credentialStore, aesEncrypter)
+	_, _ = agentSvc.CreateControllerAgent(context.Background())
 	apiKeySvc := service.NewAPIKeyService(
-		store.NewAPIKeySQLiteStore(rdb, rwdb),
+		apiKeyStore,
 		service.NewUUIDGen(),
 	)
 	pipelineSvc := service.NewPipelineService(
-		store.NewPipelineSQLiteStore(rdb, rwdb),
-		store.NewRunSQLiteStore(rdb, rwdb),
-		credentialSvc,
-		agentSvc,
+		pipelineStore,
+		runStore,
+		credentialStore,
+		agentStore,
 		apiKeySvc,
 		scheduler,
+		aesEncrypter,
 	)
 	if err := pipelineSvc.InitializeRunQueues(context.Background()); err != nil {
 		log.Fatal(err)
