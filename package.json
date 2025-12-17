@@ -1,9 +1,9 @@
 {
   "devDependencies": {
-    "@tailwindcss/cli": "^4.1.13",
-    "@tailwindcss/typography": "^0.5.16",
-    "daisyui": "^5.5.5",
-    "prettier": "^3.6.2",
-    "tailwindcss": "^4.1.13"
+    "@tailwindcss/cli": "^4.1.18",
+    "@tailwindcss/typography": "^0.5.19",
+    "daisyui": "^5.5.14",
+    "prettier": "^3.7.4",
+    "tailwindcss": "^4.1.18"
   }
 }
