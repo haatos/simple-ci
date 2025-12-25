@@ -4,6 +4,7 @@ type Step struct {
 	Step           string `yaml:"step"`
 	Script         string `yaml:"script"`
 	TimeoutSeconds int64  `yaml:"timeout_seconds"`
+	Parallel       bool   `yaml:"parallel"`
 }
 
 type Stage struct {

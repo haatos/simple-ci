@@ -1,9 +1,14 @@
 stages:
   - stage: Setup
     steps:
+      - step: Prepare stuff
+        script: 'sleep 3 && echo "preparing stuff"'
+        timeout_seconds: 8
+        parallel: true
       - step: Download deps
         script: 'sleep 5 && mkdir output && touch output/data.log && echo "downloading deps" > output/data.log'
         timeout_seconds: 8
+        parallel: true
       - step: Install deps
         script: 'sleep 5 && echo "installing deps" > output/data.log'
         timeout_seconds: 8

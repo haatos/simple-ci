@@ -417,22 +417,63 @@ func (rq *RunQueue) executePipelineScriptOnAgent(
 	repoDir = strings.TrimSuffix(repoDir, ".git")
 	for _, stage := range ps.Stages {
 		rq.outputCh <- fmt.Sprintf("    |    Executing pipeline stage '%s'\n", stage.Stage)
-		for _, step := range stage.Steps {
-			rq.outputCh <- fmt.Sprintf("    |    |    Executing step '%s'\n", step.Step)
-			if err := rq.executePipelineStepOnAgent(
-				ctx,
-				client,
-				time.Duration(step.TimeoutSeconds)*time.Second,
-				workspace,
-				workdir,
-				repoDir,
-				step.Script,
-			); err != nil {
-				return err
+		si := 0
+		for si < len(stage.Steps) {
+			cur := stage.Steps[si]
+			if cur.Parallel {
+				steps := []Step{cur}
+				sii := si + 1
+				for sii < len(stage.Steps) && stage.Steps[sii].Parallel {
+					parallelStep := stage.Steps[sii]
+					steps = append(steps, parallelStep)
+					sii++
+				}
+				var wg sync.WaitGroup
+				errs := make([]error, 0)
+				mu := sync.Mutex{}
+				for _, step := range steps {
+					wg.Go(func() {
+						rq.outputCh <- fmt.Sprintf("    |    |    Executing step '%s'\n", step.Step)
+						if err := rq.executePipelineStepOnAgent(
+							ctx,
+							client,
+							time.Duration(step.TimeoutSeconds)*time.Second,
+							workspace,
+							workdir,
+							repoDir,
+							step.Script,
+						); err != nil {
+							mu.Lock()
+							defer mu.Unlock()
+							errs = append(errs, err)
+							return
+						}
+						rq.outputCh <- fmt.Sprintf("    |    |    STEP '%s' PASSED\n", step.Step)
+					})
+				}
+				wg.Wait()
+				if len(errs) > 0 {
+					return errors.Join(errs...)
+				}
+				si = sii
+			} else {
+				si++
+				rq.outputCh <- fmt.Sprintf("    |    |    Executing step '%s'\n", cur.Step)
+				if err := rq.executePipelineStepOnAgent(
+					ctx,
+					client,
+					time.Duration(cur.TimeoutSeconds)*time.Second,
+					workspace,
+					workdir,
+					repoDir,
+					cur.Script,
+				); err != nil {
+					return err
+				}
+				rq.outputCh <- fmt.Sprintf("    |    |    STEP '%s' PASSED\n", cur.Step)
 			}
-			rq.outputCh <- "    |    |    STEP PASSED\n"
 		}
-		rq.outputCh <- "    |    STAGE PASSED\n"
+		rq.outputCh <- fmt.Sprintf("    |    STAGE '%s' PASSED\n", stage.Stage)
 	}
 	return nil
 }
@@ -446,21 +487,61 @@ func (rq *RunQueue) executePipelineScriptOnController(
 	repoDir = strings.TrimSuffix(repoDir, ".git")
 	for _, stage := range ps.Stages {
 		rq.outputCh <- fmt.Sprintf("    |    Executing pipeline stage '%s'\n", stage.Stage)
-		for _, step := range stage.Steps {
-			rq.outputCh <- fmt.Sprintf("    |    |    Executing step '%s'\n", step.Step)
-			if err := rq.executePipelineStepOnController(
-				ctx,
-				time.Duration(step.TimeoutSeconds)*time.Second,
-				workspace,
-				workdir,
-				repoDir,
-				step.Script,
-			); err != nil {
-				return err
+		si := 0
+		for si < len(stage.Steps) {
+			cur := stage.Steps[si]
+			if cur.Parallel {
+				steps := []Step{cur}
+				sii := si + 1
+				for sii < len(stage.Steps) && stage.Steps[sii].Parallel {
+					parallelStep := stage.Steps[sii]
+					steps = append(steps, parallelStep)
+					sii++
+				}
+				var wg sync.WaitGroup
+				errs := make([]error, 0)
+				mu := sync.Mutex{}
+				for _, step := range steps {
+					wg.Go(func() {
+						rq.outputCh <- fmt.Sprintf("    |    |    Executing step '%s'\n", step.Step)
+						if err := rq.executePipelineStepOnController(
+							ctx,
+							time.Duration(step.TimeoutSeconds)*time.Second,
+							workspace,
+							workdir,
+							repoDir,
+							step.Script,
+						); err != nil {
+							mu.Lock()
+							defer mu.Unlock()
+							errs = append(errs, err)
+							return
+						}
+						rq.outputCh <- fmt.Sprintf("    |    |    STEP '%s' PASSED\n", step.Step)
+					})
+				}
+				wg.Wait()
+				if len(errs) > 0 {
+					return errors.Join(errs...)
+				}
+				si = sii
+			} else {
+				si++
+				rq.outputCh <- fmt.Sprintf("    |    |    Executing step '%s'\n", cur.Step)
+				if err := rq.executePipelineStepOnController(
+					ctx,
+					time.Duration(cur.TimeoutSeconds)*time.Second,
+					workspace,
+					workdir,
+					repoDir,
+					cur.Script,
+				); err != nil {
+					return err
+				}
+				rq.outputCh <- fmt.Sprintf("    |    |    STEP '%s' PASSED\n", cur.Step)
 			}
-			rq.outputCh <- "    |    |    STEP PASSED\n"
 		}
-		rq.outputCh <- "    |    STAGE PASSED\n"
+		rq.outputCh <- fmt.Sprintf("    |    STAGE '%s' PASSED\n", stage.Stage)
 	}
 	return nil
 }
