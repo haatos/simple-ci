@@ -33,6 +33,7 @@ templ APIKeysMain(apiKeys []*store.APIKey) {
 				hx-post="/app/api-keys"
 				hx-swap="beforeend"
 				hx-target="#api-keys-table"
+				hx-disabled-elt="this"
 				class="btn btn-outline max-w-3xs"
 			>
 				Generate API Key

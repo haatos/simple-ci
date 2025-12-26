@@ -70,6 +70,7 @@ templ addNewPipelineForm(agents []*store.Agent) {
 		hx-post="/app/pipelines"
 		hx-target="#pipelines-grid"
 		hx-swap="beforeend"
+		hx-disabled-elt="button[form='add-new-pipeline-form']"
 	>
 		@components.Select(components.SelectProps{
 			Label:    "Agent*",
@@ -265,6 +266,7 @@ templ runPipelineModal(p *store.Pipeline) {
 			id={ fmt.Sprintf("run_pipeline_%d_form", p.PipelineID) }
 			hx-post={ fmt.Sprintf("/app/pipelines/%d/runs", p.PipelineID) }
 			hx-swap="none"
+			hx-disabled-elt="this"
 		>
 			@components.Input(components.InputProps{
 				Label:       "Branch",
@@ -383,6 +385,7 @@ templ PipelineRunFullRow(r store.Run) {
 							type="submit"
 							class="btn btn-error"
 							hx-post={ fmt.Sprintf("/app/pipelines/%d/runs/%d/cancel", r.RunPipelineID, r.RunID) }
+							hx-disabled-elt="this"
 						>
 							Cancel
 						</button>
@@ -461,6 +464,7 @@ templ PipelineRunRow(r store.Run) {
 							type="submit"
 							class="btn btn-error"
 							hx-post={ fmt.Sprintf("/app/pipelines/%d/runs/%d/cancel", r.RunPipelineID, r.RunID) }
+							hx-disabled-elt="this"
 						>
 							Cancel
 						</button>

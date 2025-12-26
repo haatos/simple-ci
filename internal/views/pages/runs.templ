@@ -124,6 +124,7 @@ templ cancelRunModal(r store.Run) {
 					type="submit"
 					class="btn btn-error"
 					hx-post={ fmt.Sprintf("/app/pipelines/%d/runs/%d/cancel", r.RunPipelineID, r.RunID) }
+					hx-disabled-elt="this"
 				>
 					Cancel
 				</button>

@@ -23,6 +23,7 @@ templ PipelineUpdateForm(pipeline *store.Pipeline, agents []*store.Agent) {
 		id="update-pipeline-form"
 		hx-patch="/app/pipelines"
 		hx-swap="outerHTML"
+		hx-disabled-elt="button[form='update-pipeline-form']"
 	>
 		@components.Select(components.SelectProps{
 			Label:   "Agents",
@@ -84,7 +85,13 @@ templ PipelineUpdateForm(pipeline *store.Pipeline, agents []*store.Agent) {
 				</form>
 			</div>
 		}
-		<button form="update-pipeline-form" type="submit" class="btn btn-primary">Update</button>
+		<button
+			form="update-pipeline-form"
+			type="submit"
+			class="btn btn-primary"
+		>
+			Update
+		</button>
 	</div>
 }
 

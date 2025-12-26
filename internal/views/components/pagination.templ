@@ -45,6 +45,7 @@ templ PaginationButton(id, url string, urlPage int64, disabled bool) {
 			hx-get={ fmt.Sprintf("%s?page=%d", url, urlPage) }
 			hx-target={ fmt.Sprintf("#%s", id) }
 			hx-swap="outerHTML"
+			hx-disabled-elt="this"
 		}
 		class={
 			"join-item btn btn-square disabled:opacity-40",

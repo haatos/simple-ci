@@ -12,7 +12,11 @@ templ IndexPage(user *store.User) {
 
 templ IndexMain() {
 	<main class="flex justify-center items-center mt-48">
-		<form hx-post="/auth/login" class="w-full max-w-xs grid gap-4">
+		<form
+			hx-post="/auth/login"
+			hx-disabled-elt="find button"
+			class="w-full max-w-xs grid gap-4"
+		>
 			@components.Input(components.InputProps{
 				Label:       "Username*",
 				Name:        "username",

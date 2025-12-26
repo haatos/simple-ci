@@ -13,7 +13,11 @@ templ ChangePasswordPage(user *store.User) {
 templ ChangePasswordMain(u *store.User) {
 	<main class="w-full flex flex-col justify-center items-center mt-24">
 		<h1 class="text-xl">Please set a new password</h1>
-		<form hx-post="/auth/set-password" class="mt-8 w-full max-w-xs">
+		<form
+			hx-post="/auth/set-password"
+			hx-disabled-elt="find button"
+			class="mt-8 w-full max-w-xs"
+		>
 			@components.Input(components.InputProps{
 				Name:     "username",
 				Value:    u.Username,

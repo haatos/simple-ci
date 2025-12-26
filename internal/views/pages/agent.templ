@@ -23,6 +23,7 @@ templ AgentUpdateForm(agent *store.Agent, credentials []*store.Credential) {
 		id="update-agent-form"
 		hx-patch="/app/agents"
 		hx-swap="outerHTML"
+		hx-disabled-elt="button[form='update-agent-form']"
 	>
 		if agent.AgentCredentialID != nil {
 			@components.Select(components.SelectProps{

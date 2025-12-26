@@ -57,6 +57,7 @@ templ addUserForm() {
 		hx-post="/app/users"
 		hx-target="#users"
 		hx-swap="beforeend"
+		hx-disabled-elt="button[form='add-user-form']"
 	>
 		@components.Select(components.SelectProps{
 			Name:     "user_role_id",
@@ -187,6 +188,7 @@ templ editUserModal(u *store.User) {
 		<form
 			id={ fmt.Sprintf("update-user-%d-password-form", u.UserID) }
 			hx-patch={ fmt.Sprintf("/app/users/%d/reset-password", u.UserID) }
+			hx-disabled-elt={ fmt.Sprintf("button[form='update-user-%d-password-form']", u.UserID) }
 		>
 			@components.Input(components.InputProps{
 				Label:           "Username",

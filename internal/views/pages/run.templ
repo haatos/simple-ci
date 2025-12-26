@@ -82,17 +82,28 @@ templ PipelineRunPageStatusDiv(r *store.Run) {
 				</span>
 			</p>
 		</div>
-		<div>
+		<div class="flex justify-between">
 			<button
-				class="btn btn-neutral"
-				if r.Status != store.StatusQueued && r.Status != store.StatusRunning {
-					disabled
-				} else {
-					hx-post={ fmt.Sprintf("/app/pipelines/%d/runs/%d/cancel", r.RunPipelineID, r.RunID) }
+				class={
+					"btn btn-neutral",
+					templ.KV("hidden", r.Status != store.StatusQueued && r.Status != store.StatusRunning),
 				}
+				hx-post={ fmt.Sprintf("/app/pipelines/%d/runs/%d/cancel", r.RunPipelineID, r.RunID) }
+				hx-disabled-elt="this"
 			>
 				Cancel
 			</button>
+			<a
+				id="download-btn"
+				class={
+					"btn btn-outline",
+					templ.KV("hidden", r.Status != store.StatusPassed),
+				}
+				href={ templ.SafeURL(fmt.Sprintf("/app/pipelines/%d/runs/%d/artifacts", r.RunPipelineID, r.RunID)) }
+			>
+				Download artifacts
+				@views.DownloadArtifactsIcon()
+			</a>
 		</div>
 	</div>
 }
