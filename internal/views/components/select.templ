@@ -25,7 +25,7 @@ templ Select(props SelectProps) {
 			<legend class="fieldset-legend">{ props.Label }</legend>
 		}
 		<select
-			class={ "select w-full", props.Class, templ.KV("pb-2", props.Label != "") }
+			class={ "select w-full", props.Class }
 			if props.ID != "" {
 				id={ props.ID }
 			}
