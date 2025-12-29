@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
 	"github.com/haatos/simple-ci/internal/service"
+	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/views/pages"
 
 	"github.com/labstack/echo/v4"
@@ -12,7 +14,7 @@ import (
 
 func SetupAuthRoutes(
 	g *echo.Group,
-	userService service.UserServicer,
+	userService UserAuthServicer,
 	cookieService *service.CookieService,
 ) {
 	h := NewAuthHandler(userService, cookieService)
@@ -23,13 +25,29 @@ func SetupAuthRoutes(
 	g.POST("/auth/set-password", h.PostSetPassword)
 }
 
+type UserAuthServicer interface {
+	CreateAuthSession(
+		ctx context.Context,
+		userID int64,
+	) (*store.AuthSession, error)
+	GetUserByUsernameAndPassword(
+		ctx context.Context,
+		username, password string,
+	) (*store.User, error)
+	SetUserPassword(
+		ctx context.Context,
+		userID int64,
+		newPassword string,
+	) error
+}
+
 type AuthHandler struct {
-	userService   service.UserServicer
+	userService   UserAuthServicer
 	cookieService *service.CookieService
 }
 
 func NewAuthHandler(
-	userService service.UserServicer,
+	userService UserAuthServicer,
 	cookieService *service.CookieService,
 ) *AuthHandler {
 	return &AuthHandler{userService, cookieService}
@@ -58,7 +76,11 @@ func (h *AuthHandler) PostLogin(c echo.Context) error {
 		up.Password,
 	)
 	if err != nil {
-		return newError(c, err, http.StatusInternalServerError, "invalid username or password")
+		return newError(
+			c, err,
+			http.StatusInternalServerError,
+			"invalid username or password",
+		)
 	}
 
 	s, err := h.userService.CreateAuthSession(
@@ -66,11 +88,15 @@ func (h *AuthHandler) PostLogin(c echo.Context) error {
 		u.UserID,
 	)
 	if err != nil {
-		return newError(c, err, http.StatusInternalServerError, "unable to create session")
+		return newError(
+			c, err, http.StatusInternalServerError, "unable to create session",
+		)
 	}
 
 	if err := h.cookieService.SetSessionCookie(c, s.AuthSessionID); err != nil {
-		return newError(c, err, http.StatusInternalServerError, "unable to set session cookie")
+		return newError(
+			c, err, http.StatusInternalServerError, "unable to set session cookie",
+		)
 	}
 
 	if u.PasswordChangedOn == nil || u.PasswordChangedOn.IsZero() {
@@ -113,7 +139,9 @@ func (h *AuthHandler) PostSetPassword(c echo.Context) error {
 		return newError(c, nil, http.StatusBadRequest, "invalid username")
 	}
 
-	if err := h.userService.SetUserPassword(c.Request().Context(), u.UserID, up.Password); err != nil {
+	if err := h.userService.SetUserPassword(
+		c.Request().Context(), u.UserID, up.Password,
+	); err != nil {
 		return newError(
 			c, err, http.StatusInternalServerError, "unable to set password",
 		)

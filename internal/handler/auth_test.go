@@ -14,17 +14,52 @@ import (
 	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/settings"
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/testutil"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"golang.org/x/crypto/bcrypt"
 )
+
+type MockUserAuthServicer struct {
+	mock.Mock
+}
+
+func (m *MockUserAuthServicer) CreateAuthSession(
+	ctx context.Context,
+	userID int64,
+) (*store.AuthSession, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.AuthSession), args.Error(1)
+}
+
+func (m *MockUserAuthServicer) GetUserByUsernameAndPassword(
+	ctx context.Context,
+	username, password string,
+) (*store.User, error) {
+	args := m.Called(ctx, username, password)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.User), args.Error(1)
+}
+
+func (m *MockUserAuthServicer) SetUserPassword(
+	ctx context.Context,
+	userID int64,
+	newPassword string,
+) error {
+	args := m.Called(ctx, userID, newPassword)
+	return args.Error(0)
+}
 
 func TestAuthHandler_GetLoginPage(t *testing.T) {
 	t.Run("success - login page html is returned", func(t *testing.T) {
 		// arrange
-		mockService := new(testutil.MockUserService)
+		mockService := new(MockUserAuthServicer)
 		e := echo.New()
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
@@ -45,7 +80,7 @@ func TestAuthHandler_GetLoginPage(t *testing.T) {
 	})
 	t.Run("success - login page main html is returned for htmx request", func(t *testing.T) {
 		// arrange
-		mockService := new(testutil.MockUserService)
+		mockService := new(MockUserAuthServicer)
 		e := echo.New()
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
@@ -68,7 +103,7 @@ func TestAuthHandler_GetLoginPage(t *testing.T) {
 	})
 	t.Run("success - logged in user is redirected to app page", func(t *testing.T) {
 		// arrange
-		mockService := new(testutil.MockUserService)
+		mockService := new(MockUserAuthServicer)
 		e := echo.New()
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
@@ -98,7 +133,7 @@ func TestAuthHandler_PostLogin(t *testing.T) {
 	t.Run("success - user logs in", func(t *testing.T) {
 		// arrange
 		settings.Settings = settings.NewSettings()
-		mockService := new(testutil.MockUserService)
+		mockService := new(MockUserAuthServicer)
 		expectedUser := &store.User{
 			UserID:            1,
 			UserRoleID:        store.Operator,
@@ -154,7 +189,7 @@ func TestAuthHandler_PostLogin(t *testing.T) {
 	t.Run("failure - invalid username", func(t *testing.T) {
 		// arrange
 		settings.Settings = settings.NewSettings()
-		mockService := new(testutil.MockUserService)
+		mockService := new(MockUserAuthServicer)
 		mockService.On(
 			"GetUserByUsernameAndPassword",
 			context.Background(),
@@ -195,7 +230,7 @@ func TestAuthHandler_PostLogin(t *testing.T) {
 	t.Run("failure - invalid password", func(t *testing.T) {
 		// arrange
 		settings.Settings = settings.NewSettings()
-		mockService := new(testutil.MockUserService)
+		mockService := new(MockUserAuthServicer)
 		mockService.On(
 			"GetUserByUsernameAndPassword",
 			context.Background(),
@@ -236,7 +271,7 @@ func TestAuthHandler_PostLogin(t *testing.T) {
 	t.Run("success - new user is redirected to change password", func(t *testing.T) {
 		// arrange
 		settings.Settings = settings.NewSettings()
-		mockService := new(testutil.MockUserService)
+		mockService := new(MockUserAuthServicer)
 		expectedUser := &store.User{
 			UserID:       1,
 			UserRoleID:   store.Operator,
@@ -294,7 +329,7 @@ func TestAuthHandler_GetLogOut(t *testing.T) {
 	t.Run("success - user is logged out and redirect to landing page", func(t *testing.T) {
 		// arrange
 		settings.Settings = settings.NewSettings()
-		mockService := new(testutil.MockUserService)
+		mockService := new(MockUserAuthServicer)
 
 		e := echo.New()
 		req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
@@ -326,7 +361,7 @@ func TestAuthHandler_GetSetPasswordPage(t *testing.T) {
 	t.Run("success - set password page html is returned", func(t *testing.T) {
 		// arrange
 		settings.Settings = settings.NewSettings()
-		mockService := new(testutil.MockUserService)
+		mockService := new(MockUserAuthServicer)
 
 		e := echo.New()
 		req := httptest.NewRequest(http.MethodGet, "/auth/set-password", nil)
@@ -365,7 +400,7 @@ func TestAuthHandler_PostSetPassword(t *testing.T) {
 	t.Run("success - user is redirected to login page", func(t *testing.T) {
 		// arrange
 		settings.Settings = settings.NewSettings()
-		mockService := new(testutil.MockUserService)
+		mockService := new(MockUserAuthServicer)
 		var userID int64 = 1
 		username := "testuser"
 		password := "password"
@@ -416,7 +451,7 @@ func TestAuthHandler_PostSetPassword(t *testing.T) {
 	t.Run("failure - username != signed in username", func(t *testing.T) {
 		// arrange
 		settings.Settings = settings.NewSettings()
-		mockService := new(testutil.MockUserService)
+		mockService := new(MockUserAuthServicer)
 		var userID int64 = 1
 		password := "password"
 		mockService.On("SetUserPassword", context.Background(), userID, password).
@@ -464,7 +499,7 @@ func TestAuthHandler_PostSetPassword(t *testing.T) {
 	t.Run("failure - password != password confirm", func(t *testing.T) {
 		// arrange
 		settings.Settings = settings.NewSettings()
-		mockService := new(testutil.MockUserService)
+		mockService := new(MockUserAuthServicer)
 		var userID int64 = 1
 		username := "testuser"
 		password := "password"
