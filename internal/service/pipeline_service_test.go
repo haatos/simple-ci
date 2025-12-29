@@ -893,8 +893,8 @@ func generatePipeline(agentID int64) *store.Pipeline {
 	p := &store.Pipeline{
 		PipelineID:      rand.Int63(),
 		PipelineAgentID: agentID,
-		Name:            fmt.Sprintf("pipeline%d", time.Now().UnixNano()),
-		Description:     fmt.Sprintf("description%d", time.Now().UnixNano()),
+		Name:            fmt.Sprintf("pipeline%d", time.Now().UTC().UnixNano()),
+		Description:     fmt.Sprintf("description%d", time.Now().UTC().UnixNano()),
 		Repository:      "git@github.com:haatos/simple-ci.git",
 		ScriptPath:      "pipelines/testing-pipeline.yml",
 	}

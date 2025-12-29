@@ -278,8 +278,8 @@ func (suite *pipelineSQLiteStoreSuite) createPipeline() *Pipeline {
 	p, err := suite.pipelineStore.CreatePipeline(
 		context.Background(),
 		suite.agent.AgentID,
-		fmt.Sprintf("pipeline%d", time.Now().UnixNano()),
-		fmt.Sprintf("description%d", time.Now().UnixNano()),
+		fmt.Sprintf("pipeline%d", time.Now().UTC().UnixNano()),
+		fmt.Sprintf("description%d", time.Now().UTC().UnixNano()),
 		"github.com:haatos/simple-ci.git",
 		"/pipelines/testing.yml",
 	)

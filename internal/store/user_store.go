@@ -38,8 +38,7 @@ type UserStore interface {
 	ReadUserByUsername(context.Context, string) (*User, error)
 	ReadUserBySessionID(context.Context, string) (*User, error)
 	UpdateUserRole(context.Context, int64, Role) error
-	UpdateUserPassword(context.Context, int64, string) error
-	UpdateUserPasswordChangedOn(context.Context, int64, *time.Time) error
+	UpdateUserPassword(context.Context, int64, string, *time.Time) error
 	DeleteUser(context.Context, int64) error
 	ListUsers(context.Context) ([]*User, error)
 	ListSuperusers(context.Context) ([]User, error)

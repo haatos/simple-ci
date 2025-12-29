@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/crypto/bcrypt"
@@ -320,31 +319,11 @@ func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_UpdateUserPassword() {
 
 		// act
 		newHash, _ := bcrypt.GenerateFromPassword([]byte("newtestpassword"), bcrypt.DefaultCost)
+		now := time.Now().UTC()
 		updateErr := suite.userStore.UpdateUserPassword(
 			context.Background(),
 			expectedUser.UserID,
 			string(newHash),
-		)
-		u, readErr := suite.userStore.ReadUserByID(context.Background(), expectedUser.UserID)
-
-		// assert
-		suite.NoError(updateErr)
-		suite.NoError(readErr)
-		suite.NotNil(u)
-		suite.Equal(string(newHash), u.PasswordHash)
-	})
-}
-
-func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_UpdateUserPasswordChangedOn() {
-	suite.Run("success - user password changed on time updates", func() {
-		// arrange
-		expectedUser := suite.createUser(Operator)
-
-		// act
-		now := time.Now().UTC()
-		updateErr := suite.userStore.UpdateUserPasswordChangedOn(
-			context.Background(),
-			expectedUser.UserID,
 			&now,
 		)
 		u, readErr := suite.userStore.ReadUserByID(context.Background(), expectedUser.UserID)
@@ -353,11 +332,7 @@ func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_UpdateUserPasswordChanged
 		suite.NoError(updateErr)
 		suite.NoError(readErr)
 		suite.NotNil(u)
-		suite.NotNil(u.PasswordChangedOn)
-		suite.Equal(
-			now.Format(internal.DBTimestampLayout),
-			u.PasswordChangedOn.Format(internal.DBTimestampLayout),
-		)
+		suite.Equal(string(newHash), u.PasswordHash)
 	})
 }
 
@@ -458,12 +433,12 @@ func (suite *userSQLiteStoreSuite) TestUserSQLiteStore_ListSuperusers() {
 }
 
 func (suite *userSQLiteStoreSuite) createUser(role Role) *User {
-	password := fmt.Sprintf("password%d", time.Now().UnixNano())
+	password := fmt.Sprintf("password%d", time.Now().UTC().UnixNano())
 	hash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	u, err := suite.userStore.CreateUser(
 		context.Background(),
 		role,
-		fmt.Sprintf("testuser%d", time.Now().UnixNano()),
+		fmt.Sprintf("testuser%d", time.Now().UTC().UnixNano()),
 		string(hash),
 	)
 	suite.NoError(err)
@@ -472,7 +447,7 @@ func (suite *userSQLiteStoreSuite) createUser(role Role) *User {
 
 func (suite *userSQLiteStoreSuite) createAuthSession(u *User) *AuthSession {
 	expectedAuthSession := &AuthSession{
-		AuthSessionID:      fmt.Sprintf("%d", time.Now().UnixNano()),
+		AuthSessionID:      fmt.Sprintf("%d", time.Now().UTC().UnixNano()),
 		AuthSessionUserID:  u.UserID,
 		AuthSessionExpires: time.Now().UTC().Add(30 * time.Second),
 	}

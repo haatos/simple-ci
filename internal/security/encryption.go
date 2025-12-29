@@ -13,7 +13,7 @@ import (
 
 var charset = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890-_|!/"
 var seededRand *rand.Rand = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
+	rand.NewSource(time.Now().UTC().UnixNano()))
 
 func stringWithCharset(length int64, charset string) string {
 	b := make([]byte, length)

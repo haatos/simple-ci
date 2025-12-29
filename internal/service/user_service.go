@@ -146,12 +146,8 @@ func (s *UserService) ChangeUserPassword(
 		return err
 	}
 	u.PasswordHash = string(newHash)
-	if err := s.userStore.UpdateUserPassword(ctx, u.UserID, u.PasswordHash); err != nil {
-		return err
-	}
-	now := time.Now().UTC()
-	u.PasswordChangedOn = &now
-	return s.userStore.UpdateUserPasswordChangedOn(ctx, u.UserID, u.PasswordChangedOn)
+	u.PasswordChangedOn = util.AsPtr(time.Now().UTC())
+	return s.userStore.UpdateUserPassword(ctx, u.UserID, u.PasswordHash, u.PasswordChangedOn)
 }
 
 func (s *UserService) SetUserPassword(
@@ -168,11 +164,8 @@ func (s *UserService) SetUserPassword(
 		return err
 	}
 	u.PasswordHash = string(newHash)
-	if err := s.userStore.UpdateUserPassword(ctx, u.UserID, u.PasswordHash); err != nil {
-		return err
-	}
 	u.PasswordChangedOn = util.AsPtr(time.Now().UTC())
-	return s.userStore.UpdateUserPasswordChangedOn(ctx, u.UserID, u.PasswordChangedOn)
+	return s.userStore.UpdateUserPassword(ctx, u.UserID, u.PasswordHash, u.PasswordChangedOn)
 }
 
 func (s *UserService) ResetUserPassword(
@@ -192,11 +185,8 @@ func (s *UserService) ResetUserPassword(
 		return err
 	}
 	u.PasswordHash = string(newHash)
-	if err := s.userStore.UpdateUserPassword(ctx, u.UserID, u.PasswordHash); err != nil {
-		return err
-	}
 	u.PasswordChangedOn = nil
-	return s.userStore.UpdateUserPasswordChangedOn(ctx, u.UserID, u.PasswordChangedOn)
+	return s.userStore.UpdateUserPassword(ctx, u.UserID, u.PasswordHash, u.PasswordChangedOn)
 }
 
 func (s *UserService) DeleteUser(ctx context.Context, u *store.User) error {

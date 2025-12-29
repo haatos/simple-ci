@@ -305,8 +305,8 @@ func TestCredentialsHandler_DeleteCredential(t *testing.T) {
 func generateCredential() *store.Credential {
 	return &store.Credential{
 		CredentialID:      rand.Int63(),
-		Username:          fmt.Sprintf("testuser%d", time.Now().UnixNano()),
-		Description:       fmt.Sprintf("description%d", time.Now().UnixNano()),
+		Username:          fmt.Sprintf("testuser%d", time.Now().UTC().UnixNano()),
+		Description:       fmt.Sprintf("description%d", time.Now().UTC().UnixNano()),
 		SSHPrivateKeyHash: security.GenerateRandomKey(32),
 	}
 }

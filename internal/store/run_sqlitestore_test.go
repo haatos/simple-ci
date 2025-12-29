@@ -174,9 +174,7 @@ func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_UpdateRunStartedOn() {
 		suite.NoError(updateErr)
 		suite.NoError(readErr)
 		suite.NotNil(r)
-		suite.Equal(now.Format(internal.DBTimestampLayout),
-			r.StartedOn.Format(internal.DBTimestampLayout),
-		)
+		suite.Equal(&now, r.StartedOn)
 	})
 }
 
@@ -204,9 +202,7 @@ func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_UpdateRunEndedOn() {
 		suite.NoError(updateErr)
 		suite.NoError(readErr)
 		suite.NotNil(r)
-		suite.Equal(now.Format(internal.DBTimestampLayout),
-			r.EndedOn.Format(internal.DBTimestampLayout),
-		)
+		suite.Equal(&now, r.EndedOn)
 		suite.Equal(artifacts, *r.Artifacts)
 	})
 }

@@ -190,7 +190,7 @@ func generateUser(
 	user := &store.User{
 		UserID:            rand.Int63(),
 		UserRoleID:        role,
-		Username:          fmt.Sprintf("testuser%d", time.Now().UnixNano()),
+		Username:          fmt.Sprintf("testuser%d", time.Now().UTC().UnixNano()),
 		PasswordHash:      string(hash),
 		PasswordChangedOn: passwordChangedOn,
 	}

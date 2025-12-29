@@ -88,17 +88,9 @@ func (m *MockUserStore) UpdateUserPassword(
 	ctx context.Context,
 	userID int64,
 	passwordHash string,
-) error {
-	args := m.Called(ctx, userID, passwordHash)
-	return args.Error(0)
-}
-
-func (m *MockUserStore) UpdateUserPasswordChangedOn(
-	ctx context.Context,
-	userID int64,
 	changedOn *time.Time,
 ) error {
-	args := m.Called(ctx, userID, changedOn)
+	args := m.Called(ctx, userID, passwordHash, changedOn)
 	return args.Error(0)
 }
 
@@ -330,7 +322,7 @@ func generateUser(
 	user := &store.User{
 		UserID:            rand.Int63(),
 		UserRoleID:        role,
-		Username:          fmt.Sprintf("testuser%d", time.Now().UnixNano()),
+		Username:          fmt.Sprintf("testuser%d", time.Now().UTC().UnixNano()),
 		PasswordHash:      string(hash),
 		PasswordChangedOn: passwordChangedOn,
 	}

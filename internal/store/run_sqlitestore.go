@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/georgysavva/scany/v2/sqlscan"
-	"github.com/haatos/simple-ci/internal"
 )
 
 type RunSQLiteStore struct {
@@ -65,7 +64,7 @@ func (store *RunSQLiteStore) UpdateRunStartedOn(
 		ctx, query,
 		workingDirectory,
 		status,
-		startedOn.Format(internal.DBTimestampLayout),
+		startedOn,
 		id,
 	)
 	return err
@@ -87,7 +86,7 @@ func (store *RunSQLiteStore) UpdateRunEndedOn(
 		ctx, query,
 		status,
 		artifacts,
-		endedOn.Format(internal.DBTimestampLayout),
+		endedOn,
 		id,
 	)
 	return err

@@ -6,15 +6,7 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron/v2"
-	"github.com/haatos/simple-ci/internal"
 )
-
-const initQuery = `
-	CREATE TABLE IF NOT EXISTS kvstore (
-		email TEXT PRIMARY KEY,
-		expires TIMESTAMP
-	)
-`
 
 type KeyValueStore struct {
 	DB *sql.DB
@@ -40,19 +32,18 @@ func (kvs *KeyValueStore) ScheduleDailyCleanUp(s gocron.Scheduler) {
 
 func (kvs *KeyValueStore) Add(email string, expires time.Time) error {
 	query := "insert into kvstore (email, expires) values($1, $2)"
-	_, err := kvs.DB.Exec(query, email, expires.Format(internal.DBTimestampLayout))
+	_, err := kvs.DB.Exec(query, email, expires)
 	return err
 }
 
 func (kvs *KeyValueStore) Get(email string) (time.Time, error) {
 	query := "select expires from kvstore where email = $1"
-	var timestamp string
+	var timestamp time.Time
 	err := kvs.DB.QueryRow(query, email).Scan(&timestamp)
 	if err != nil {
 		return time.Now(), err
 	}
-	output, err := time.Parse(internal.DBTimestampLayout, timestamp)
-	return output, err
+	return timestamp, nil
 }
 
 func (kvs *KeyValueStore) RemoveExpired() error {

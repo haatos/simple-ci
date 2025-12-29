@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/util"
 
 	"github.com/georgysavva/scany/v2/sqlscan"
@@ -167,27 +166,13 @@ func (store *UserSQLiteStore) UpdateUserPassword(
 	ctx context.Context,
 	userID int64,
 	passwordHash string,
-) error {
-	query := `update users
-	set password_hash = $1
-	where user_id = $2`
-	_, err := store.rwdb.ExecContext(ctx, query, passwordHash, userID)
-	return err
-}
-
-func (store *UserSQLiteStore) UpdateUserPasswordChangedOn(
-	ctx context.Context,
-	userID int64,
 	changedOn *time.Time,
 ) error {
 	query := `update users
-	set password_changed_on = $1
-	where user_id = $2`
-	passwordChangedOn := "NULL"
-	if changedOn != nil && !changedOn.IsZero() {
-		passwordChangedOn = changedOn.Format(internal.DBTimestampLayout)
-	}
-	_, err := store.rwdb.ExecContext(ctx, query, passwordChangedOn, userID)
+	set password_hash = $1,
+		password_changed_on = $2
+	where user_id = $3`
+	_, err := store.rwdb.ExecContext(ctx, query, passwordHash, changedOn, userID)
 	return err
 }
 
@@ -214,7 +199,7 @@ func (store *UserSQLiteStore) CreateAuthSession(
 		`,
 		as.AuthSessionID,
 		as.AuthSessionUserID,
-		as.AuthSessionExpires.Format(internal.DBTimestampLayout),
+		as.AuthSessionExpires,
 	)
 	if err != nil {
 		return nil, err

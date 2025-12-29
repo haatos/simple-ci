@@ -196,9 +196,9 @@ func (suite *agentSQLiteStoreSuite) createAgent() *Agent {
 	a, err := suite.agentStore.CreateAgent(
 		context.Background(),
 		suite.credential.CredentialID,
-		fmt.Sprintf("agent%d", time.Now().UnixNano()),
+		fmt.Sprintf("agent%d", time.Now().UTC().UnixNano()),
 		"localhost",
-		fmt.Sprintf("/tmp%d", time.Now().UnixNano()),
+		fmt.Sprintf("/tmp%d", time.Now().UTC().UnixNano()),
 		"",
 		"unix",
 	)

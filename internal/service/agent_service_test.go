@@ -277,10 +277,10 @@ func generateAgent(credentialID int64) *store.Agent {
 	agent := &store.Agent{
 		AgentID:           rand.Int63(),
 		AgentCredentialID: &credentialID,
-		Name:              fmt.Sprintf("agent%d", time.Now().UnixNano()),
+		Name:              fmt.Sprintf("agent%d", time.Now().UTC().UnixNano()),
 		Hostname:          "localhost",
 		Workspace:         "/tmp",
-		Description:       fmt.Sprintf("description%d", time.Now().UnixNano()),
+		Description:       fmt.Sprintf("description%d", time.Now().UTC().UnixNano()),
 		OSType:            "unix",
 	}
 	return agent

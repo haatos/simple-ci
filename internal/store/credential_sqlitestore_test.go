@@ -167,8 +167,8 @@ func (suite *credentialSQLiteStoreSuite) TestCredentialSQLiteStore_ListCredentia
 func (suite *credentialSQLiteStoreSuite) createCredential() *Credential {
 	c, err := suite.credentialStore.CreateCredential(
 		context.Background(),
-		fmt.Sprintf("testuser%d", time.Now().UnixNano()),
-		fmt.Sprintf("credential%d", time.Now().UnixNano()),
+		fmt.Sprintf("testuser%d", time.Now().UTC().UnixNano()),
+		fmt.Sprintf("credential%d", time.Now().UTC().UnixNano()),
 		"hash",
 	)
 	suite.NoError(err)
