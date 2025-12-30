@@ -14,13 +14,13 @@ import (
 
 type AgentService struct {
 	agentStore      store.AgentStore
-	credentialStore store.CredentialStore
+	credentialStore CredentialStore
 	aesEncrypter    *security.AESEncrypter
 }
 
 func NewAgentService(
 	s store.AgentStore,
-	cs store.CredentialStore,
+	cs CredentialStore,
 	aesEncrypter *security.AESEncrypter,
 ) *AgentService {
 	return &AgentService{agentStore: s, credentialStore: cs, aesEncrypter: aesEncrypter}

@@ -9,13 +9,29 @@ import (
 	"github.com/haatos/simple-ci/internal/store"
 )
 
+type CredentialWriter interface {
+	CreateCredential(context.Context, string, string, string) (*store.Credential, error)
+	UpdateCredential(context.Context, int64, string, string) error
+	DeleteCredential(context.Context, int64) error
+}
+
+type CredentialReader interface {
+	ReadCredentialByID(context.Context, int64) (*store.Credential, error)
+	ListCredentials(context.Context) ([]*store.Credential, error)
+}
+
+type CredentialStore interface {
+	CredentialWriter
+	CredentialReader
+}
+
 type CredentialService struct {
-	credentialStore store.CredentialStore
+	credentialStore CredentialStore
 	encrypter       security.Encrypter
 }
 
 func NewCredentialService(
-	s store.CredentialStore,
+	s CredentialStore,
 	encrypter security.Encrypter,
 ) *CredentialService {
 	return &CredentialService{credentialStore: s, encrypter: encrypter}

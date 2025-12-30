@@ -28,7 +28,7 @@ import (
 type PipelineService struct {
 	pipelineStore   store.PipelineStore
 	runStore        store.RunStore
-	credentialStore store.CredentialStore
+	credentialStore CredentialStore
 	agentService    store.AgentStore
 	apiKeyStore     store.APIKeyStore
 	scheduler       gocron.Scheduler
@@ -41,7 +41,7 @@ type PipelineService struct {
 func NewPipelineService(
 	pipelineStore store.PipelineStore,
 	runStore store.RunStore,
-	credentialStore store.CredentialStore,
+	credentialStore CredentialStore,
 	agentStore store.AgentStore,
 	apiKeyStore store.APIKeyStore,
 	scheduler gocron.Scheduler,
