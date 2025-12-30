@@ -1,7 +1,6 @@
 package store
 
 import (
-	"context"
 	"time"
 )
 
@@ -29,17 +28,4 @@ type Run struct {
 	Archive          bool
 
 	PipelineName string
-}
-
-type RunStore interface {
-	CreatePipelineRun(context.Context, int64, string) (*Run, error)
-	ReadRunByID(context.Context, int64) (*Run, error)
-	UpdatePipelineRunStartedOn(context.Context, int64, string, RunStatus, *time.Time) error
-	UpdatePipelineRunEndedOn(context.Context, int64, RunStatus, *string, *time.Time) error
-	AppendPipelineRunOutput(context.Context, int64, string) error
-	DeletePipelineRun(context.Context, int64) error
-	ListPipelineRuns(context.Context, int64) ([]Run, error)
-	ListLatestPipelineRuns(context.Context, int64, int64) ([]Run, error)
-	ListPipelineRunsPaginated(context.Context, int64, int64, int64) ([]Run, error)
-	CountPipelineRuns(context.Context, int64) (int64, error)
 }

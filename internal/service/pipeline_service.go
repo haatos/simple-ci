@@ -49,9 +49,30 @@ type PipelineStore interface {
 	PipelineReader
 }
 
+type RunWriter interface {
+	CreatePipelineRun(context.Context, int64, string) (*store.Run, error)
+	UpdatePipelineRunStartedOn(context.Context, int64, string, store.RunStatus, *time.Time) error
+	UpdatePipelineRunEndedOn(context.Context, int64, store.RunStatus, *string, *time.Time) error
+	AppendPipelineRunOutput(context.Context, int64, string) error
+	DeletePipelineRun(context.Context, int64) error
+}
+
+type RunReader interface {
+	ReadRunByID(context.Context, int64) (*store.Run, error)
+	ListPipelineRuns(context.Context, int64) ([]store.Run, error)
+	ListLatestPipelineRuns(context.Context, int64, int64) ([]store.Run, error)
+	ListPipelineRunsPaginated(context.Context, int64, int64, int64) ([]store.Run, error)
+	CountPipelineRuns(context.Context, int64) (int64, error)
+}
+
+type RunStore interface {
+	RunWriter
+	RunReader
+}
+
 type PipelineService struct {
 	pipelineStore   PipelineStore
-	runStore        store.RunStore
+	runStore        RunStore
 	credentialStore CredentialStore
 	agentService    AgentStore
 	apiKeyStore     store.APIKeyStore
@@ -64,7 +85,7 @@ type PipelineService struct {
 
 func NewPipelineService(
 	pipelineStore PipelineStore,
-	runStore store.RunStore,
+	runStore RunStore,
 	credentialStore CredentialStore,
 	agentStore AgentStore,
 	apiKeyStore store.APIKeyStore,
