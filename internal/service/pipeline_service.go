@@ -29,7 +29,7 @@ type PipelineService struct {
 	pipelineStore   store.PipelineStore
 	runStore        store.RunStore
 	credentialStore CredentialStore
-	agentService    store.AgentStore
+	agentService    AgentStore
 	apiKeyStore     store.APIKeyStore
 	scheduler       gocron.Scheduler
 	aesEncrypter    security.Encrypter
@@ -42,7 +42,7 @@ func NewPipelineService(
 	pipelineStore store.PipelineStore,
 	runStore store.RunStore,
 	credentialStore CredentialStore,
-	agentStore store.AgentStore,
+	agentStore AgentStore,
 	apiKeyStore store.APIKeyStore,
 	scheduler gocron.Scheduler,
 	aesEncrypter security.Encrypter,

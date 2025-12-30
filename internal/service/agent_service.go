@@ -12,14 +12,39 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+type AgentWriter interface {
+	CreateControllerAgent(context.Context) (*store.Agent, error)
+	CreateAgent(
+		context.Context,
+		int64,
+		string,
+		string,
+		string,
+		string,
+		string,
+	) (*store.Agent, error)
+	UpdateAgent(context.Context, int64, int64, string, string, string, string, string) error
+	DeleteAgent(context.Context, int64) error
+}
+
+type AgentReader interface {
+	ReadAgentByID(context.Context, int64) (*store.Agent, error)
+	ListAgents(context.Context) ([]*store.Agent, error)
+}
+
+type AgentStore interface {
+	AgentWriter
+	AgentReader
+}
+
 type AgentService struct {
-	agentStore      store.AgentStore
+	agentStore      AgentStore
 	credentialStore CredentialStore
 	aesEncrypter    *security.AESEncrypter
 }
 
 func NewAgentService(
-	s store.AgentStore,
+	s AgentStore,
 	cs CredentialStore,
 	aesEncrypter *security.AESEncrypter,
 ) *AgentService {
