@@ -1,7 +1,6 @@
 package store
 
 import (
-	"context"
 	"database/sql"
 	"time"
 )
@@ -29,20 +28,4 @@ type AuthSession struct {
 	AuthSessionID      string
 	AuthSessionUserID  int64
 	AuthSessionExpires time.Time
-}
-
-type UserStore interface {
-	CreateUser(context.Context, Role, string, string) (*User, error)
-	CreateSuperuser(context.Context, string, string) (*User, error)
-	ReadUserByID(context.Context, int64) (*User, error)
-	ReadUserByUsername(context.Context, string) (*User, error)
-	ReadUserBySessionID(context.Context, string) (*User, error)
-	UpdateUserRole(context.Context, int64, Role) error
-	UpdateUserPassword(context.Context, int64, string, *time.Time) error
-	DeleteUser(context.Context, int64) error
-	ListUsers(context.Context) ([]*User, error)
-	ListSuperusers(context.Context) ([]User, error)
-
-	CreateAuthSession(context.Context, string, int64, time.Time) (*AuthSession, error)
-	DeleteAuthSessionsByUserID(context.Context, int64) error
 }

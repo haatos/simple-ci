@@ -18,11 +18,38 @@ import (
 	"golang.org/x/term"
 )
 
-type UserService struct {
-	userStore store.UserStore
+type UserWriter interface {
+	CreateUser(context.Context, store.Role, string, string) (*store.User, error)
+	CreateSuperuser(context.Context, string, string) (*store.User, error)
+	UpdateUserRole(context.Context, int64, store.Role) error
+	UpdateUserPassword(context.Context, int64, string, *time.Time) error
+	DeleteUser(context.Context, int64) error
 }
 
-func NewUserService(s store.UserStore) *UserService {
+type UserReader interface {
+	ReadUserByID(context.Context, int64) (*store.User, error)
+	ReadUserByUsername(context.Context, string) (*store.User, error)
+	ReadUserBySessionID(context.Context, string) (*store.User, error)
+	ListUsers(context.Context) ([]*store.User, error)
+	ListSuperusers(context.Context) ([]store.User, error)
+}
+
+type AuthSessionWriter interface {
+	CreateAuthSession(context.Context, string, int64, time.Time) (*store.AuthSession, error)
+	DeleteAuthSessionsByUserID(context.Context, int64) error
+}
+
+type UserStore interface {
+	UserWriter
+	UserReader
+	AuthSessionWriter
+}
+
+type UserService struct {
+	userStore UserStore
+}
+
+func NewUserService(s UserStore) *UserService {
 	return &UserService{userStore: s}
 }
 
