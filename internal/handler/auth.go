@@ -5,17 +5,21 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/views/pages"
 
 	"github.com/labstack/echo/v4"
 )
 
+type AuthCookieServicer interface {
+	SetSessionCookie(echo.Context, string) error
+	RemoveSessionCookie(echo.Context)
+}
+
 func SetupAuthRoutes(
 	g *echo.Group,
 	userService UserAuthServicer,
-	cookieService *service.CookieService,
+	cookieService AuthCookieServicer,
 ) {
 	h := NewAuthHandler(userService, cookieService)
 	g.GET("", h.GetLoginPage, AlreadyLoggedIn)
@@ -43,12 +47,12 @@ type UserAuthServicer interface {
 
 type AuthHandler struct {
 	userService   UserAuthServicer
-	cookieService *service.CookieService
+	cookieService AuthCookieServicer
 }
 
 func NewAuthHandler(
 	userService UserAuthServicer,
-	cookieService *service.CookieService,
+	cookieService AuthCookieServicer,
 ) *AuthHandler {
 	return &AuthHandler{userService, cookieService}
 }

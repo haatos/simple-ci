@@ -3,14 +3,18 @@ package handler
 import (
 	"net/http"
 
-	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/labstack/echo/v4"
 )
 
+type MiddlewareCookieServicer interface {
+	GetSessionID(echo.Context) (string, error)
+	RemoveSessionCookie(echo.Context)
+}
+
 func SessionMiddleware(
 	userService UserServicer,
-	cookieService *service.CookieService,
+	cookieService MiddlewareCookieServicer,
 ) func(echo.HandlerFunc) echo.HandlerFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {

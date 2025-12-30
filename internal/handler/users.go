@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/views"
 	"github.com/haatos/simple-ci/internal/views/pages"
@@ -15,10 +14,14 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+type UserCookieServicer interface {
+	RemoveSessionCookie(echo.Context)
+}
+
 func SetupUserRoutes(
 	g *echo.Group,
 	userService UserServicer,
-	cookieService *service.CookieService,
+	cookieService UserCookieServicer,
 ) {
 	h := NewUserHandler(userService, cookieService)
 	usersGroup := g.Group("/app/users", IsAuthenticated)
@@ -71,12 +74,12 @@ type UserServicer interface {
 
 type UserHandler struct {
 	userService   UserServicer
-	cookieService *service.CookieService
+	cookieService UserCookieServicer
 }
 
 func NewUserHandler(
 	userService UserServicer,
-	cookieService *service.CookieService,
+	cookieService UserCookieServicer,
 ) *UserHandler {
 	return &UserHandler{userService, cookieService}
 }
