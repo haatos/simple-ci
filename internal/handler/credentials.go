@@ -29,17 +29,17 @@ func SetupCredentialRoutes(g *echo.Group, credentialService CredentialServicer) 
 
 type CredentialWriter interface {
 	CreateCredential(
-		context.Context,
-		string, string, string,
+		ctx context.Context,
+		username, description, sshPrivateKey string,
 	) (*store.Credential, error)
-	UpdateCredential(context.Context, int64, string, string) error
-	DeleteCredential(context.Context, int64) error
+	UpdateCredential(ctx context.Context, id int64, username, description string) error
+	DeleteCredential(ctx context.Context, id int64) error
 }
 
 type CredentialReader interface {
-	GetCredentialByID(context.Context, int64) (*store.Credential, error)
-	ListCredentials(context.Context) ([]*store.Credential, error)
-	DecryptAES(string) ([]byte, error)
+	GetCredentialByID(ctx context.Context, id int64) (*store.Credential, error)
+	ListCredentials(ctx context.Context) ([]*store.Credential, error)
+	DecryptAES(s string) ([]byte, error)
 }
 
 type CredentialServicer interface {

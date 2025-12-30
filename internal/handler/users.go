@@ -57,7 +57,7 @@ type UserWriter interface {
 	) error
 	DeleteUser(ctx context.Context, u *store.User) error
 	UpdateUserRole(ctx context.Context, userID int64, role store.Role) error
-	InitializeSuperuser(context.Context)
+	InitializeSuperuser(ctx context.Context)
 }
 
 type UserReader interface {

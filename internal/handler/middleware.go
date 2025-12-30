@@ -8,8 +8,8 @@ import (
 )
 
 type MiddlewareCookieServicer interface {
-	GetSessionID(echo.Context) (string, error)
-	RemoveSessionCookie(echo.Context)
+	GetSessionID(c echo.Context) (string, error)
+	RemoveSessionCookie(c echo.Context)
 }
 
 func SessionMiddleware(

@@ -13,23 +13,23 @@ import (
 )
 
 type AgentWriter interface {
-	CreateControllerAgent(context.Context) (*store.Agent, error)
+	CreateControllerAgent(ctx context.Context) (*store.Agent, error)
 	CreateAgent(
-		context.Context,
-		int64,
-		string,
-		string,
-		string,
-		string,
-		string,
+		ctx context.Context,
+		credentialID int64,
+		name, hostname, workspace, description, osType string,
 	) (*store.Agent, error)
-	UpdateAgent(context.Context, int64, int64, string, string, string, string, string) error
-	DeleteAgent(context.Context, int64) error
+	UpdateAgent(
+		ctx context.Context,
+		id, credentialID int64,
+		name, hostname, workspace, description, osType string,
+	) error
+	DeleteAgent(ctx context.Context, id int64) error
 }
 
 type AgentReader interface {
-	ReadAgentByID(context.Context, int64) (*store.Agent, error)
-	ListAgents(context.Context) ([]*store.Agent, error)
+	ReadAgentByID(ctx context.Context, id int64) (*store.Agent, error)
+	ListAgents(ctx context.Context) ([]*store.Agent, error)
 }
 
 type AgentStore interface {

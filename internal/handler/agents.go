@@ -41,19 +41,19 @@ type AgentWriter interface {
 		agentID int64, agentCredentialID int64,
 		name, hostname, workspace, description, osType string,
 	) error
-	DeleteAgent(context.Context, int64) error
-	TestAgentConnection(context.Context, int64) error
+	DeleteAgent(ctx context.Context, id int64) error
+	TestAgentConnection(ctx context.Context, id int64) error
 }
 
 type AgentReader interface {
-	GetAgentByID(context.Context, int64) (*store.Agent, error)
-	GetAgentAndCredentials(context.Context, int64) (*store.Agent, []*store.Credential, error)
-	ListAgents(context.Context) ([]*store.Agent, error)
-	ListAgentsAndCredentials(context.Context) ([]*store.Agent, []*store.Credential, error)
+	GetAgentByID(ctx context.Context, id int64) (*store.Agent, error)
+	GetAgentAndCredentials(ctx context.Context, id int64) (*store.Agent, []*store.Credential, error)
+	ListAgents(ctx context.Context) ([]*store.Agent, error)
+	ListAgentsAndCredentials(ctx context.Context) ([]*store.Agent, []*store.Credential, error)
 }
 
 type AgentConnectionManager interface {
-	TestAgentConnection(context.Context, int64) error
+	TestAgentConnection(ctx context.Context, id int64) error
 }
 
 type AgentServicer interface {

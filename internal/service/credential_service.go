@@ -10,14 +10,17 @@ import (
 )
 
 type CredentialWriter interface {
-	CreateCredential(context.Context, string, string, string) (*store.Credential, error)
-	UpdateCredential(context.Context, int64, string, string) error
-	DeleteCredential(context.Context, int64) error
+	CreateCredential(
+		ctx context.Context,
+		username, description, sshPrivateKey string,
+	) (*store.Credential, error)
+	UpdateCredential(ctx context.Context, id int64, username, description string) error
+	DeleteCredential(ctx context.Context, id int64) error
 }
 
 type CredentialReader interface {
-	ReadCredentialByID(context.Context, int64) (*store.Credential, error)
-	ListCredentials(context.Context) ([]*store.Credential, error)
+	ReadCredentialByID(ctx context.Context, id int64) (*store.Credential, error)
+	ListCredentials(ctx context.Context) ([]*store.Credential, error)
 }
 
 type CredentialStore interface {

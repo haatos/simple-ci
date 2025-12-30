@@ -21,12 +21,28 @@ func (ug *UUIDGen) GenerateUUID() string {
 	return uuid.NewString()
 }
 
+type APIKeyWriter interface {
+	CreateAPIKey(ctx context.Context, uuid string) (*store.APIKey, error)
+	DeleteAPIKey(ctx context.Context, id int64) error
+}
+
+type APIKeyReader interface {
+	ReadAPIKeyByID(ctx context.Context, id int64) (*store.APIKey, error)
+	ReadAPIKeyByValue(ctx context.Context, uuid string) (*store.APIKey, error)
+	ListAPIKeys(ctx context.Context) ([]*store.APIKey, error)
+}
+
+type APIKeyStore interface {
+	APIKeyWriter
+	APIKeyReader
+}
+
 type APIKeyService struct {
-	store         store.APIKeyStore
+	store         APIKeyStore
 	uuidGenerator UUIDGenerator
 }
 
-func NewAPIKeyService(store store.APIKeyStore, uuidGenerator UUIDGenerator) *APIKeyService {
+func NewAPIKeyService(store APIKeyStore, uuidGenerator UUIDGenerator) *APIKeyService {
 	return &APIKeyService{store, uuidGenerator}
 }
 

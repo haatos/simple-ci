@@ -21,14 +21,14 @@ func SetupAPIKeyRoutes(g *echo.Group, apiKeyService APIKeyServicer) {
 }
 
 type APIKeyWriter interface {
-	CreateAPIKey(context.Context) (*store.APIKey, error)
-	DeleteAPIKey(context.Context, int64) error
+	CreateAPIKey(ctx context.Context) (*store.APIKey, error)
+	DeleteAPIKey(ctx context.Context, id int64) error
 }
 
 type APIKeyReader interface {
-	GetAPIKeyByID(context.Context, int64) (*store.APIKey, error)
-	GetAPIKeyByValue(context.Context, string) (*store.APIKey, error)
-	ListAPIKeys(context.Context) ([]*store.APIKey, error)
+	GetAPIKeyByID(ctx context.Context, id int64) (*store.APIKey, error)
+	GetAPIKeyByValue(ctx context.Context, value string) (*store.APIKey, error)
+	ListAPIKeys(ctx context.Context) ([]*store.APIKey, error)
 }
 
 type APIKeyServicer interface {

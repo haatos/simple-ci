@@ -66,8 +66,8 @@ type PipelineWriter interface {
 		pipelineID, agentID int64,
 		name, description, repository, scriptPath string,
 	) error
-	UpdatePipelineSchedule(context.Context, int64, *string, *string) error
-	UpdatePipelineScheduleJobID(context.Context, int64, *string) error
+	UpdatePipelineSchedule(ctx context.Context, id int64, branch, schedule *string) error
+	UpdatePipelineScheduleJobID(ctx context.Context, id int64, jobID *string) error
 	DeletePipeline(ctx context.Context, pipelineID int64) error
 }
 
@@ -76,12 +76,12 @@ type PipelineReader interface {
 		ctx context.Context,
 		pipelineID int64,
 	) (*store.Pipeline, error)
-	GetPipelineAndAgents(context.Context, int64) (*store.Pipeline, []*store.Agent, error)
-	GetPipelineRunData(context.Context, int64) (*store.PipelineRunData, error)
+	GetPipelineAndAgents(ctx context.Context, id int64) (*store.Pipeline, []*store.Agent, error)
+	GetPipelineRunData(ctx context.Context, id int64) (*store.PipelineRunData, error)
 	ListPipelines(ctx context.Context) ([]*store.Pipeline, error)
 	ListPipelinesAndAgents(ctx context.Context) ([]*store.Pipeline, []*store.Agent, error)
 	ListScheduledPipelines(ctx context.Context) ([]*store.Pipeline, error)
-	CollectPipelineRunArtifacts(context.Context, int64, int64) (string, error)
+	CollectPipelineRunArtifacts(ctx context.Context, pipelineID, runID int64) (string, error)
 }
 
 type PipelineRunWriter interface {
@@ -107,19 +107,19 @@ type PipelineRunWriter interface {
 type PipelineRunReader interface {
 	GetPipelineRunByID(ctx context.Context, runID int64) (*store.Run, error)
 	ListPipelineRuns(ctx context.Context, pipelineID int64) ([]store.Run, error)
-	ListLatestPipelineRuns(context.Context, int64, int64) ([]store.Run, error)
-	ListPipelineRunsPaginated(context.Context, int64, int64, int64) ([]store.Run, error)
-	GetPipelineRunCount(context.Context, int64) (int64, error)
+	ListLatestPipelineRuns(ctx context.Context, id, limit int64) ([]store.Run, error)
+	ListPipelineRunsPaginated(ctx context.Context, id, limit, offset int64) ([]store.Run, error)
+	GetPipelineRunCount(ctx context.Context, id int64) (int64, error)
 }
 
 type RunQueueServicer interface {
-	InitializeRunQueues(context.Context) error
-	AddRunQueues([]int64, int64)
-	AddRunQueue(int64, int64)
-	GetPipelineRunQueue(int64) (*service.RunQueue, bool)
-	RemoveRunQueue(int64)
-	EnqueueRun(*store.Run) error
-	ShutdownRunQueue(int64)
+	InitializeRunQueues(ctx context.Context) error
+	AddRunQueues(ids []int64, queueSize int64)
+	AddRunQueue(id, queueSize int64)
+	GetPipelineRunQueue(id int64) (*service.RunQueue, bool)
+	RemoveRunQueue(id int64)
+	EnqueueRun(run *store.Run) error
+	ShutdownRunQueue(id int64)
 	ShutdownAll()
 }
 

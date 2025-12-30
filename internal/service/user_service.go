@@ -19,24 +19,29 @@ import (
 )
 
 type UserWriter interface {
-	CreateUser(context.Context, store.Role, string, string) (*store.User, error)
-	CreateSuperuser(context.Context, string, string) (*store.User, error)
-	UpdateUserRole(context.Context, int64, store.Role) error
-	UpdateUserPassword(context.Context, int64, string, *time.Time) error
-	DeleteUser(context.Context, int64) error
+	CreateUser(ctx context.Context, role store.Role, username, password string) (*store.User, error)
+	CreateSuperuser(ctx context.Context, username, password string) (*store.User, error)
+	UpdateUserRole(ctx context.Context, id int64, role store.Role) error
+	UpdateUserPassword(ctx context.Context, id int64, password string, changedOn *time.Time) error
+	DeleteUser(ctx context.Context, id int64) error
 }
 
 type UserReader interface {
-	ReadUserByID(context.Context, int64) (*store.User, error)
-	ReadUserByUsername(context.Context, string) (*store.User, error)
-	ReadUserBySessionID(context.Context, string) (*store.User, error)
-	ListUsers(context.Context) ([]*store.User, error)
-	ListSuperusers(context.Context) ([]store.User, error)
+	ReadUserByID(ctx context.Context, id int64) (*store.User, error)
+	ReadUserByUsername(ctx context.Context, username string) (*store.User, error)
+	ReadUserBySessionID(ctx context.Context, sessionID string) (*store.User, error)
+	ListUsers(ctx context.Context) ([]*store.User, error)
+	ListSuperusers(ctx context.Context) ([]store.User, error)
 }
 
 type AuthSessionWriter interface {
-	CreateAuthSession(context.Context, string, int64, time.Time) (*store.AuthSession, error)
-	DeleteAuthSessionsByUserID(context.Context, int64) error
+	CreateAuthSession(
+		ctx context.Context,
+		sessionID string,
+		userID int64,
+		expires time.Time,
+	) (*store.AuthSession, error)
+	DeleteAuthSessionsByUserID(ctx context.Context, id int64) error
 }
 
 type UserStore interface {
