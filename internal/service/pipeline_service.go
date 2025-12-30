@@ -25,72 +25,12 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type PipelineServicer interface {
-	CreatePipeline(
-		ctx context.Context,
-		agentID int64,
-		name, description, repository, scriptPath string,
-	) (*store.Pipeline, error)
-	GetPipelineByID(
-		ctx context.Context,
-		pipelineID int64,
-	) (*store.Pipeline, error)
-	GetPipelineAndAgents(context.Context, int64) (*store.Pipeline, []*store.Agent, error)
-	GetPipelineRunData(context.Context, int64) (*store.PipelineRunData, error)
-	ListPipelines(ctx context.Context) ([]*store.Pipeline, error)
-	ListPipelinesAndAgents(ctx context.Context) ([]*store.Pipeline, []*store.Agent, error)
-	ListScheduledPipelines(ctx context.Context) ([]*store.Pipeline, error)
-	UpdatePipeline(
-		ctx context.Context,
-		pipelineID, agentID int64,
-		name, description, repository, scriptPath string,
-	) error
-	UpdatePipelineSchedule(context.Context, int64, *string, *string) error
-	UpdatePipelineScheduleJobID(context.Context, int64, *string) error
-	DeletePipeline(ctx context.Context, pipelineID int64) error
-	CollectPipelineRunArtifacts(context.Context, int64, int64) (string, error)
-
-	CreateRun(ctx context.Context, pipelineID int64, branch string) (*store.Run, error)
-	GetRunByID(ctx context.Context, runID int64) (*store.Run, error)
-	UpdateRunStartedOn(
-		ctx context.Context,
-		runID int64,
-		workingDirectory string,
-		status store.RunStatus,
-		startedOn *time.Time,
-	) error
-	UpdateRunEndedOn(
-		ctx context.Context,
-		runID int64,
-		status store.RunStatus,
-		artifacts *string,
-		endedOn *time.Time,
-	) error
-	AppendRunOutput(context.Context, int64, string) error
-	DeleteRun(ctx context.Context, runID int64) error
-	ListPipelineRuns(ctx context.Context, pipelineID int64) ([]store.Run, error)
-	ListLatestPipelineRuns(context.Context, int64, int64) ([]store.Run, error)
-	ListPipelineRunsPaginated(context.Context, int64, int64, int64) ([]store.Run, error)
-	GetPipelineRunCount(context.Context, int64) (int64, error)
-
-	GetAPIKeyByValue(context.Context, string) (*store.APIKey, error)
-	InitializeRunQueues(context.Context) error
-
-	AddRunQueues([]int64, int64)
-	AddRunQueue(int64, int64)
-	GetRunQueue(int64) (*RunQueue, bool)
-	RemoveRunQueue(int64)
-	EnqueueRun(*store.Run) error
-	ShutdownRunQueue(int64)
-	ShutdownAll()
-}
-
 type PipelineService struct {
 	pipelineStore   store.PipelineStore
 	runStore        store.RunStore
 	credentialStore store.CredentialStore
 	agentService    store.AgentStore
-	apiKeyService   APIKeyServicer
+	apiKeyStore     store.APIKeyStore
 	scheduler       gocron.Scheduler
 	aesEncrypter    security.Encrypter
 
@@ -103,7 +43,7 @@ func NewPipelineService(
 	runStore store.RunStore,
 	credentialStore store.CredentialStore,
 	agentStore store.AgentStore,
-	apiKeyService APIKeyServicer,
+	apiKeyStore store.APIKeyStore,
 	scheduler gocron.Scheduler,
 	aesEncrypter security.Encrypter,
 ) *PipelineService {
@@ -112,7 +52,7 @@ func NewPipelineService(
 		runStore:        runStore,
 		credentialStore: credentialStore,
 		agentService:    agentStore,
-		apiKeyService:   apiKeyService,
+		apiKeyStore:     apiKeyStore,
 		scheduler:       scheduler,
 		aesEncrypter:    aesEncrypter,
 		queues:          make(map[int64]*RunQueue),
@@ -224,7 +164,9 @@ func (s *PipelineService) ListPipelinesAndAgents(
 	return pipelines, agents, nil
 }
 
-func (s *PipelineService) ListScheduledPipelines(ctx context.Context) ([]*store.Pipeline, error) {
+func (s *PipelineService) ListScheduledPipelines(
+	ctx context.Context,
+) ([]*store.Pipeline, error) {
 	pipelines, err := s.pipelineStore.ListScheduledPipelines(ctx)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
@@ -262,23 +204,23 @@ func (s *PipelineService) UpdatePipelineSchedule(
 		if err := s.scheduler.RemoveJob(uuid.MustParse(*p.ScheduleJobID)); err != nil {
 			log.Println("unable to remove existing job: ", err)
 		}
+	} else {
+		jobID, err := s.SchedulePipelineRun(p.PipelineID, *schedule, *branch)
+		if err != nil {
+			return err
+		}
+		err = s.pipelineStore.UpdatePipelineSchedule(
+			ctx,
+			p.PipelineID,
+			schedule,
+			branch,
+			jobID,
+		)
+		if err != nil {
+			return err
+		}
 	}
 
-	jobID, err := s.SchedulePipelineRun(p.PipelineID, *schedule, *branch)
-	if err != nil {
-		return err
-	}
-
-	err = s.pipelineStore.UpdatePipelineSchedule(
-		ctx,
-		p.PipelineID,
-		schedule,
-		branch,
-		jobID,
-	)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -290,11 +232,17 @@ func (s *PipelineService) UpdatePipelineScheduleJobID(
 	return s.pipelineStore.UpdatePipelineScheduleJobID(ctx, pipelineID, jobID)
 }
 
-func (s *PipelineService) AppendRunOutput(ctx context.Context, runID int64, out string) error {
-	return s.runStore.AppendRunOutput(ctx, runID, out)
+func (s *PipelineService) AppendPipelineRunOutput(
+	ctx context.Context,
+	runID int64,
+	out string,
+) error {
+	return s.runStore.AppendPipelineRunOutput(ctx, runID, out)
 }
 
-func (s *PipelineService) DeletePipeline(ctx context.Context, pipelineID int64) error {
+func (s *PipelineService) DeletePipeline(
+	ctx context.Context, pipelineID int64,
+) error {
 	err := s.pipelineStore.DeletePipeline(ctx, pipelineID)
 	if err != nil {
 		return err
@@ -323,7 +271,7 @@ func (s *PipelineService) CollectPipelineRunArtifacts(
 	if err != nil {
 		return "", err
 	}
-	r, err := s.GetRunByID(ctx, runID)
+	r, err := s.GetPipelineRunByID(ctx, runID)
 	if err != nil {
 		return "", err
 	}
@@ -421,11 +369,15 @@ func recursiveDownload(sftpClient *sftp.Client, remotePath, localPath string) er
 		localFilePath := filepath.Join(localPath, f.Name())
 
 		if f.IsDir() {
-			if err := recursiveDownload(sftpClient, remoteFilePath, localFilePath); err != nil {
+			if err := recursiveDownload(
+				sftpClient, remoteFilePath, localFilePath,
+			); err != nil {
 				return err
 			}
 		} else {
-			if err := downloadFile(sftpClient, remoteFilePath, localFilePath); err != nil {
+			if err := downloadFile(
+				sftpClient, remoteFilePath, localFilePath,
+			); err != nil {
 				return err
 			}
 		}
@@ -454,19 +406,21 @@ func downloadFile(sftpClient *sftp.Client, remotePath, localPath string) error {
 	return nil
 }
 
-func (s *PipelineService) CreateRun(
+func (s *PipelineService) CreatePipelineRun(
 	ctx context.Context,
 	pipelineID int64,
 	branch string,
 ) (*store.Run, error) {
-	r, err := s.runStore.CreateRun(ctx, pipelineID, branch)
+	r, err := s.runStore.CreatePipelineRun(ctx, pipelineID, branch)
 	if err != nil {
 		return nil, err
 	}
 	return r, nil
 }
 
-func (s *PipelineService) GetRunByID(ctx context.Context, runID int64) (*store.Run, error) {
+func (s *PipelineService) GetPipelineRunByID(
+	ctx context.Context, runID int64,
+) (*store.Run, error) {
 	r, err := s.runStore.ReadRunByID(ctx, runID)
 	if err != nil {
 		return nil, err
@@ -474,28 +428,34 @@ func (s *PipelineService) GetRunByID(ctx context.Context, runID int64) (*store.R
 	return r, nil
 }
 
-func (s *PipelineService) UpdateRunStartedOn(
+func (s *PipelineService) UpdatePipelineRunStartedOn(
 	ctx context.Context,
 	runID int64,
 	workingDirectory string,
 	status store.RunStatus,
 	startedOn *time.Time,
 ) error {
-	return s.runStore.UpdateRunStartedOn(ctx, runID, workingDirectory, status, startedOn)
+	return s.runStore.UpdatePipelineRunStartedOn(
+		ctx, runID, workingDirectory, status, startedOn,
+	)
 }
 
-func (s *PipelineService) UpdateRunEndedOn(
+func (s *PipelineService) UpdatePipelineRunEndedOn(
 	ctx context.Context,
 	runID int64,
 	status store.RunStatus,
 	artifacts *string,
 	endedOn *time.Time,
 ) error {
-	return s.runStore.UpdateRunEndedOn(ctx, runID, status, artifacts, endedOn)
+	return s.runStore.UpdatePipelineRunEndedOn(
+		ctx, runID, status, artifacts, endedOn,
+	)
 }
 
-func (s *PipelineService) DeleteRun(ctx context.Context, runID int64) error {
-	return s.runStore.DeleteRun(ctx, runID)
+func (s *PipelineService) DeletePipelineRun(
+	ctx context.Context, runID int64,
+) error {
+	return s.runStore.DeletePipelineRun(ctx, runID)
 }
 
 func (s *PipelineService) ListPipelineRuns(
@@ -520,7 +480,9 @@ func (s *PipelineService) ListPipelineRunsPaginated(
 	ctx context.Context,
 	pipelineID, limit, offset int64,
 ) ([]store.Run, error) {
-	return s.runStore.ListPipelineRunsPaginated(ctx, pipelineID, limit, offset)
+	return s.runStore.ListPipelineRunsPaginated(
+		ctx, pipelineID, limit, offset,
+	)
 }
 
 func (s *PipelineService) GetPipelineRunCount(
@@ -533,7 +495,20 @@ func (s *PipelineService) GetAPIKeyByValue(
 	ctx context.Context,
 	value string,
 ) (*store.APIKey, error) {
-	return s.apiKeyService.GetAPIKeyByValue(ctx, value)
+	return s.apiKeyStore.ReadAPIKeyByValue(ctx, value)
+}
+
+func (s *PipelineService) GetAPIKeyByID(
+	ctx context.Context,
+	id int64,
+) (*store.APIKey, error) {
+	return s.apiKeyStore.ReadAPIKeyByID(ctx, id)
+}
+
+func (s *PipelineService) ListAPIKeys(
+	ctx context.Context,
+) ([]*store.APIKey, error) {
+	return s.apiKeyStore.ListAPIKeys(ctx)
 }
 
 func (s *PipelineService) SchedulePipelineRun(
@@ -546,7 +521,7 @@ func (s *PipelineService) SchedulePipelineRun(
 	job, err := s.scheduler.NewJob(
 		gocron.CronJob(schedule, false),
 		gocron.NewTask(func() {
-			if r, err := s.CreateRun(
+			if r, err := s.CreatePipelineRun(
 				context.Background(),
 				pipelineID,
 				branch,
@@ -567,7 +542,7 @@ func (s *PipelineService) AddRunQueues(ids []int64, maxRuns int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, id := range ids {
-		s.queues[id] = NewRunQueue(s, maxRuns)
+		s.queues[id] = NewRunQueue(s.pipelineStore, s.runStore, s.aesEncrypter, maxRuns)
 	}
 }
 
@@ -583,11 +558,11 @@ func (s *PipelineService) AddRunQueue(id int64, maxRuns int64) {
 	// Adds and starts a new RunQueue
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.queues[id] = NewRunQueue(s, maxRuns)
+	s.queues[id] = NewRunQueue(s.pipelineStore, s.runStore, s.aesEncrypter, maxRuns)
 }
 
 func (s *PipelineService) StartRunQueue(id int64) error {
-	rq, ok := s.GetRunQueue(id)
+	rq, ok := s.GetPipelineRunQueue(id)
 	if !ok {
 		return fmt.Errorf("run queue for pipeline %d does not exist", id)
 	}
@@ -595,7 +570,7 @@ func (s *PipelineService) StartRunQueue(id int64) error {
 	return nil
 }
 
-func (s *PipelineService) GetRunQueue(id int64) (*RunQueue, bool) {
+func (s *PipelineService) GetPipelineRunQueue(id int64) (*RunQueue, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	rq, ok := s.queues[id]
@@ -609,7 +584,7 @@ func (s *PipelineService) RemoveRunQueue(id int64) {
 }
 
 func (s *PipelineService) EnqueueRun(r *store.Run) error {
-	rq, ok := s.GetRunQueue(r.RunPipelineID)
+	rq, ok := s.GetPipelineRunQueue(r.RunPipelineID)
 	if !ok {
 		return fmt.Errorf("run queue for pipeline %d does not exist", r.RunPipelineID)
 	}
@@ -621,7 +596,7 @@ func (s *PipelineService) EnqueueRun(r *store.Run) error {
 func (s *PipelineService) ShutdownRunQueue(id int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	rq, ok := s.GetRunQueue(id)
+	rq, ok := s.GetPipelineRunQueue(id)
 	if !ok {
 		return
 	}

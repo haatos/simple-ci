@@ -1,13 +1,14 @@
 package handler
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/haatos/simple-ci/internal/service"
+	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/views"
 	"github.com/haatos/simple-ci/internal/views/pages"
 	"github.com/labstack/echo/v4"
@@ -17,7 +18,7 @@ const (
 	deleteAgentErrorTarget string = "#delete-agent-error"
 )
 
-func SetupAgentRoutes(g *echo.Group, agentService service.AgentServicer) {
+func SetupAgentRoutes(g *echo.Group, agentService AgentServicer) {
 	h := NewAgentHandler(agentService)
 	agentsGroup := g.Group("/app/agents", IsAuthenticated)
 	agentsGroup.GET("", h.GetAgentsPage)
@@ -28,12 +29,45 @@ func SetupAgentRoutes(g *echo.Group, agentService service.AgentServicer) {
 	agentsGroup.POST("/:agent_id/test-connection", h.PostTestAgentConnection)
 }
 
+type AgentWriter interface {
+	CreateControllerAgent(ctx context.Context) (*store.Agent, error)
+	CreateAgent(
+		ctx context.Context,
+		agentCredentialID int64,
+		name, hostname, workspace, description, osType string,
+	) (*store.Agent, error)
+	UpdateAgent(
+		ctx context.Context,
+		agentID int64, agentCredentialID int64,
+		name, hostname, workspace, description, osType string,
+	) error
+	DeleteAgent(context.Context, int64) error
+	TestAgentConnection(context.Context, int64) error
+}
+
+type AgentReader interface {
+	GetAgentByID(context.Context, int64) (*store.Agent, error)
+	GetAgentAndCredentials(context.Context, int64) (*store.Agent, []*store.Credential, error)
+	ListAgents(context.Context) ([]*store.Agent, error)
+	ListAgentsAndCredentials(context.Context) ([]*store.Agent, []*store.Credential, error)
+}
+
+type AgentConnectionManager interface {
+	TestAgentConnection(context.Context, int64) error
+}
+
+type AgentServicer interface {
+	AgentWriter
+	AgentReader
+	AgentConnectionManager
+}
+
 type AgentHandler struct {
-	agentService service.AgentServicer
+	agentService AgentServicer
 }
 
 func NewAgentHandler(
-	agentService service.AgentServicer,
+	agentService AgentServicer,
 ) *AgentHandler {
 	return &AgentHandler{agentService}
 }

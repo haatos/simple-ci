@@ -10,7 +10,6 @@ import (
 
 	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/store"
-	"github.com/haatos/simple-ci/internal/testutil"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -109,7 +108,7 @@ type MockRunStore struct {
 	mock.Mock
 }
 
-func (m *MockRunStore) CreateRun(
+func (m *MockRunStore) CreatePipelineRun(
 	ctx context.Context,
 	pipelineID int64,
 	branch string,
@@ -132,7 +131,7 @@ func (m *MockRunStore) ReadRunByID(
 	return args.Get(0).(*store.Run), args.Error(1)
 }
 
-func (m *MockRunStore) UpdateRunStartedOn(
+func (m *MockRunStore) UpdatePipelineRunStartedOn(
 	ctx context.Context,
 	id int64,
 	dir string,
@@ -143,7 +142,7 @@ func (m *MockRunStore) UpdateRunStartedOn(
 	return args.Error(0)
 }
 
-func (m *MockRunStore) UpdateRunEndedOn(
+func (m *MockRunStore) UpdatePipelineRunEndedOn(
 	ctx context.Context,
 	id int64,
 	status store.RunStatus,
@@ -154,17 +153,23 @@ func (m *MockRunStore) UpdateRunEndedOn(
 	return args.Error(0)
 }
 
-func (m *MockRunStore) AppendRunOutput(ctx context.Context, runID int64, out string) error {
+func (m *MockRunStore) AppendPipelineRunOutput(
+	ctx context.Context, runID int64, out string,
+) error {
 	args := m.Called(ctx, runID, out)
 	return args.Error(0)
 }
 
-func (m *MockRunStore) DeleteRun(ctx context.Context, id int64) error {
+func (m *MockRunStore) DeletePipelineRun(
+	ctx context.Context, id int64,
+) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
-func (m *MockRunStore) ListPipelineRuns(ctx context.Context, id int64) ([]store.Run, error) {
+func (m *MockRunStore) ListPipelineRuns(
+	ctx context.Context, id int64,
+) ([]store.Run, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).([]store.Run), args.Error(1)
 }
@@ -185,7 +190,9 @@ func (m *MockRunStore) ListPipelineRunsPaginated(
 	return args.Get(0).([]store.Run), args.Error(1)
 }
 
-func (m *MockRunStore) CountPipelineRuns(ctx context.Context, id int64) (int64, error) {
+func (m *MockRunStore) CountPipelineRuns(
+	ctx context.Context, id int64,
+) (int64, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).(int64), args.Error(1)
 }
@@ -216,7 +223,9 @@ func (m *MockCredentialService) GetCredentialByID(
 	return args.Get(0).(*store.Credential), args.Error(1)
 }
 
-func (m *MockCredentialService) ListCredentials(ctx context.Context) ([]*store.Credential, error) {
+func (m *MockCredentialService) ListCredentials(
+	ctx context.Context,
+) ([]*store.Credential, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]*store.Credential), args.Error(1)
 }
@@ -230,7 +239,9 @@ func (m *MockCredentialService) UpdateCredential(
 	return args.Error(0)
 }
 
-func (m *MockCredentialService) DeleteCredential(ctx context.Context, credentialID int64) error {
+func (m *MockCredentialService) DeleteCredential(
+	ctx context.Context, credentialID int64,
+) error {
 	args := m.Called(ctx, credentialID)
 	return args.Error(0)
 }
@@ -539,21 +550,21 @@ func TestPipelineService_UpdatePipelineSchedule(t *testing.T) {
 	})
 }
 
-func TestPipelineService_CreateRun(t *testing.T) {
+func TestPipelineService_CreatePipelineRun(t *testing.T) {
 	t.Run("success - run created", func(t *testing.T) {
 		// arrange
 		expectedRun := generateRun(0)
 		mockStore := new(MockRunStore)
 		branch := "main"
 		mockStore.On(
-			"CreateRun",
+			"CreatePipelineRun",
 			context.Background(),
 			expectedRun.RunPipelineID, branch,
 		).Return(expectedRun, nil)
 		pipelineService := NewPipelineService(nil, mockStore, nil, nil, nil, nil, nil)
 
 		// act
-		r, err := pipelineService.CreateRun(
+		r, err := pipelineService.CreatePipelineRun(
 			context.Background(), expectedRun.RunPipelineID, branch,
 		)
 
@@ -564,7 +575,7 @@ func TestPipelineService_CreateRun(t *testing.T) {
 	})
 }
 
-func TestPipelineService_GetRunByID(t *testing.T) {
+func TestPipelineService_GetPipelineRunByID(t *testing.T) {
 	t.Run("success - run is found", func(t *testing.T) {
 		// arrange
 		expectedRun := generateRun(0)
@@ -577,7 +588,7 @@ func TestPipelineService_GetRunByID(t *testing.T) {
 		pipelineService := NewPipelineService(nil, mockStore, nil, nil, nil, nil, nil)
 
 		// act
-		r, err := pipelineService.GetRunByID(context.Background(), expectedRun.RunID)
+		r, err := pipelineService.GetPipelineRunByID(context.Background(), expectedRun.RunID)
 
 		// assert
 		assert.NoError(t, err)
@@ -586,13 +597,13 @@ func TestPipelineService_GetRunByID(t *testing.T) {
 	})
 }
 
-func TestPipelineService_UpdateRunStartedOn(t *testing.T) {
+func TestPipelineService_UpdatePipelineRunStartedOn(t *testing.T) {
 	t.Run("success - run found", func(t *testing.T) {
 		// arrange
 		run := generateRun(0)
 		mockStore := new(MockRunStore)
 		mockStore.On(
-			"UpdateRunStartedOn",
+			"UpdatePipelineRunStartedOn",
 			context.Background(),
 			run.RunID,
 			*run.WorkingDirectory,
@@ -602,7 +613,7 @@ func TestPipelineService_UpdateRunStartedOn(t *testing.T) {
 		pipelineService := NewPipelineService(nil, mockStore, nil, nil, nil, nil, nil)
 
 		// act
-		err := pipelineService.UpdateRunStartedOn(
+		err := pipelineService.UpdatePipelineRunStartedOn(
 			context.Background(),
 			run.RunID,
 			*run.WorkingDirectory,
@@ -615,7 +626,7 @@ func TestPipelineService_UpdateRunStartedOn(t *testing.T) {
 	})
 }
 
-func TestPipelineService_UpdateRunEndedOn(t *testing.T) {
+func TestPipelineService_UpdatePipelineRunEndedOn(t *testing.T) {
 	t.Run("success - run found", func(t *testing.T) {
 		// arrange
 		var runID int64 = 1
@@ -624,14 +635,14 @@ func TestPipelineService_UpdateRunEndedOn(t *testing.T) {
 		endedOn := time.Now().UTC()
 		mockStore := new(MockRunStore)
 		mockStore.On(
-			"UpdateRunEndedOn",
+			"UpdatePipelineRunEndedOn",
 			context.Background(),
 			runID, status, &artifacts, &endedOn,
 		).Return(nil)
 		pipelineService := NewPipelineService(nil, mockStore, nil, nil, nil, nil, nil)
 
 		// act
-		err := pipelineService.UpdateRunEndedOn(
+		err := pipelineService.UpdatePipelineRunEndedOn(
 			context.Background(),
 			runID,
 			status,
@@ -644,20 +655,20 @@ func TestPipelineService_UpdateRunEndedOn(t *testing.T) {
 	})
 }
 
-func TestPipelineService_DeleteRun(t *testing.T) {
+func TestPipelineService_DeletePipelineRun(t *testing.T) {
 	t.Run("success - run is found", func(t *testing.T) {
 		// arrange
 		var runID int64 = 1
 		mockStore := new(MockRunStore)
 		mockStore.On(
-			"DeleteRun",
+			"DeletePipelineRun",
 			context.Background(),
 			runID,
 		).Return(nil)
 		pipelineService := NewPipelineService(nil, mockStore, nil, nil, nil, nil, nil)
 
 		// act
-		err := pipelineService.DeleteRun(context.Background(), runID)
+		err := pipelineService.DeletePipelineRun(context.Background(), runID)
 
 		// assert
 		assert.NoError(t, err)
@@ -780,9 +791,9 @@ func TestPipelineService_GetAPIKeyByValue(t *testing.T) {
 		// arrange
 		ctx := context.Background()
 		expectedAPIKey := generateAPIKey()
-		mockService := new(testutil.MockAPIKeyService)
+		mockService := new(MockAPIKeyStore)
 		mockService.On(
-			"GetAPIKeyByValue",
+			"ReadAPIKeyByValue",
 			ctx,
 			expectedAPIKey.Value,
 		).Return(expectedAPIKey, nil)
@@ -819,7 +830,7 @@ func TestPipelineService_InitializeRunQueues(t *testing.T) {
 	})
 }
 
-func TestPipelineService_GetRunQueue(t *testing.T) {
+func TestPipelineService_GetPipelineRunQueue(t *testing.T) {
 	t.Run("success - run queue is found", func(t *testing.T) {
 		// arrange
 		p := generatePipeline(0)
@@ -827,7 +838,7 @@ func TestPipelineService_GetRunQueue(t *testing.T) {
 		pipelineService.AddRunQueue(p.PipelineID, internal.Config.QueueSize)
 
 		// act
-		rq, ok := pipelineService.GetRunQueue(p.PipelineID)
+		rq, ok := pipelineService.GetPipelineRunQueue(p.PipelineID)
 
 		// assert
 		assert.True(t, ok)
@@ -841,12 +852,12 @@ func TestPipelineService_RemoveRunQueue(t *testing.T) {
 		p := generatePipeline(0)
 		pipelineService := NewPipelineService(nil, nil, nil, nil, nil, nil, nil)
 		pipelineService.AddRunQueue(p.PipelineID, 3)
-		_, ok := pipelineService.GetRunQueue(p.PipelineID)
+		_, ok := pipelineService.GetPipelineRunQueue(p.PipelineID)
 		assert.True(t, ok)
 
 		// act
 		pipelineService.RemoveRunQueue(p.PipelineID)
-		rq, ok := pipelineService.GetRunQueue(p.PipelineID)
+		rq, ok := pipelineService.GetPipelineRunQueue(p.PipelineID)
 
 		// assert
 		assert.False(t, ok)

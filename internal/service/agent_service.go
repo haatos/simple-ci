@@ -12,27 +12,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type AgentServicer interface {
-	CreateControllerAgent(ctx context.Context) (*store.Agent, error)
-	CreateAgent(
-		ctx context.Context,
-		agentCredentialID int64,
-		name, hostname, workspace, description, osType string,
-	) (*store.Agent, error)
-	GetAgentByID(context.Context, int64) (*store.Agent, error)
-	GetAgentAndCredentials(context.Context, int64) (*store.Agent, []*store.Credential, error)
-	ListAgents(context.Context) ([]*store.Agent, error)
-	ListAgentsAndCredentials(context.Context) ([]*store.Agent, []*store.Credential, error)
-	UpdateAgent(
-		ctx context.Context,
-		agentID int64, agentCredentialID int64,
-		name, hostname, workspace, description, osType string,
-	) error
-	DeleteAgent(context.Context, int64) error
-
-	TestAgentConnection(context.Context, int64) error
-}
-
 type AgentService struct {
 	agentStore      store.AgentStore
 	credentialStore store.CredentialStore

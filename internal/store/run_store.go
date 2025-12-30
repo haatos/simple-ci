@@ -32,12 +32,12 @@ type Run struct {
 }
 
 type RunStore interface {
-	CreateRun(context.Context, int64, string) (*Run, error)
+	CreatePipelineRun(context.Context, int64, string) (*Run, error)
 	ReadRunByID(context.Context, int64) (*Run, error)
-	UpdateRunStartedOn(context.Context, int64, string, RunStatus, *time.Time) error
-	UpdateRunEndedOn(context.Context, int64, RunStatus, *string, *time.Time) error
-	AppendRunOutput(context.Context, int64, string) error
-	DeleteRun(context.Context, int64) error
+	UpdatePipelineRunStartedOn(context.Context, int64, string, RunStatus, *time.Time) error
+	UpdatePipelineRunEndedOn(context.Context, int64, RunStatus, *string, *time.Time) error
+	AppendPipelineRunOutput(context.Context, int64, string) error
+	DeletePipelineRun(context.Context, int64) error
 	ListPipelineRuns(context.Context, int64) ([]Run, error)
 	ListLatestPipelineRuns(context.Context, int64, int64) ([]Run, error)
 	ListPipelineRunsPaginated(context.Context, int64, int64, int64) ([]Run, error)

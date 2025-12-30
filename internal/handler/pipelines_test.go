@@ -15,6 +15,7 @@ import (
 	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/store"
+	"github.com/haatos/simple-ci/internal/testutil"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
@@ -149,7 +150,7 @@ func (m *MockPipelineService) UpdatePipelineScheduleJobID(
 	return args.Error(0)
 }
 
-func (m *MockPipelineService) CreateRun(
+func (m *MockPipelineService) CreatePipelineRun(
 	ctx context.Context,
 	pipelineID int64,
 	branch string,
@@ -160,14 +161,18 @@ func (m *MockPipelineService) CreateRun(
 	}
 	return args.Get(0).(*store.Run), nil
 }
-func (m *MockPipelineService) GetRunByID(ctx context.Context, runID int64) (*store.Run, error) {
+
+func (m *MockPipelineService) GetPipelineRunByID(
+	ctx context.Context,
+	runID int64,
+) (*store.Run, error) {
 	args := m.Called(ctx, runID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*store.Run), nil
 }
-func (m *MockPipelineService) UpdateRunStartedOn(
+func (m *MockPipelineService) UpdatePipelineRunStartedOn(
 	ctx context.Context,
 	runID int64,
 	workingDirectory string,
@@ -177,7 +182,7 @@ func (m *MockPipelineService) UpdateRunStartedOn(
 	args := m.Called(ctx, runID, workingDirectory, status, startedOn)
 	return args.Error(0)
 }
-func (m *MockPipelineService) UpdateRunEndedOn(
+func (m *MockPipelineService) UpdatePipelineRunEndedOn(
 	ctx context.Context,
 	runID int64,
 	status store.RunStatus,
@@ -188,12 +193,16 @@ func (m *MockPipelineService) UpdateRunEndedOn(
 	return args.Error(0)
 }
 
-func (m *MockPipelineService) AppendRunOutput(ctx context.Context, runID int64, out string) error {
+func (m *MockPipelineService) AppendPipelineRunOutput(
+	ctx context.Context,
+	runID int64,
+	out string,
+) error {
 	args := m.Called(ctx, runID, out)
 	return args.Error(0)
 }
 
-func (m *MockPipelineService) DeleteRun(ctx context.Context, runID int64) error {
+func (m *MockPipelineService) DeletePipelineRun(ctx context.Context, runID int64) error {
 	args := m.Called(ctx, runID)
 	return args.Error(0)
 }
@@ -238,17 +247,6 @@ func (m *MockPipelineService) GetPipelineRunCount(ctx context.Context, id int64)
 	return args.Get(0).(int64), args.Error(1)
 }
 
-func (m *MockPipelineService) GetAPIKeyByValue(
-	ctx context.Context,
-	value string,
-) (*store.APIKey, error) {
-	args := m.Called(ctx, value)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*store.APIKey), nil
-}
-
 func (m *MockPipelineService) InitializeRunQueues(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
@@ -271,7 +269,7 @@ func (m *MockPipelineService) StartRunQueue(id int64) error {
 	return args.Error(0)
 }
 
-func (m *MockPipelineService) GetRunQueue(id int64) (*service.RunQueue, bool) {
+func (m *MockPipelineService) GetPipelineRunQueue(id int64) (*service.RunQueue, bool) {
 	args := m.Called(id)
 	if args.Get(0) == nil {
 		return nil, false
@@ -315,7 +313,7 @@ func TestPipelinesHandler_GetPipelinesPage(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/app/pipelines", nil)
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
-		h := NewPipelineHandler(mockPipelineService)
+		h := NewPipelineHandler(mockPipelineService, nil)
 
 		// act
 		err := h.GetPipelinesPage(c)
@@ -344,7 +342,7 @@ func TestPipelinesHandler_GetPipelinesPage(t *testing.T) {
 		req.Header.Set("hx-request", "true")
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
-		h := NewPipelineHandler(mockPipelineService)
+		h := NewPipelineHandler(mockPipelineService, nil)
 
 		// act
 		err := h.GetPipelinesPage(c)
@@ -383,7 +381,7 @@ func TestPipelinesHandler_GetPipelinePage(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetParamNames("pipeline_id")
 		c.SetParamValues(fmt.Sprintf("%d", expectedPipeline.PipelineID))
-		h := NewPipelineHandler(mockPipelineService)
+		h := NewPipelineHandler(mockPipelineService, nil)
 
 		// act
 		err := h.GetPipelinePage(c)
@@ -421,7 +419,7 @@ func TestPipelinesHandler_GetPipelinePage(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetParamNames("pipeline_id")
 		c.SetParamValues(fmt.Sprintf("%d", expectedPipeline.PipelineID))
-		h := NewPipelineHandler(mockPipelineService)
+		h := NewPipelineHandler(mockPipelineService, nil)
 
 		// act
 		err := h.GetPipelinePage(c)
@@ -468,7 +466,7 @@ func TestPipelinesHandler_PatchPipeline(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetParamNames("pipeline_id")
 		c.SetParamValues(fmt.Sprintf("%d", pipeline.PipelineID))
-		h := NewPipelineHandler(mockPipelineService)
+		h := NewPipelineHandler(mockPipelineService, nil)
 
 		// act
 		err := h.PatchPipeline(c)
@@ -509,7 +507,7 @@ func TestPipelinesHandler_PatchPipeline(t *testing.T) {
 		c.Request().Header.Set("hx-request", "true")
 		c.SetParamNames("pipeline_id")
 		c.SetParamValues(fmt.Sprintf("%d", p.PipelineID))
-		h := NewPipelineHandler(mockPipelineService)
+		h := NewPipelineHandler(mockPipelineService, nil)
 
 		// act
 		err := h.PatchPipeline(c)
@@ -550,7 +548,7 @@ func TestPipelinesHandler_DeletePipeline(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetParamNames("pipeline_id")
 		c.SetParamValues(fmt.Sprintf("%d", expectedPipeline.PipelineID))
-		h := NewPipelineHandler(mockPipelineService)
+		h := NewPipelineHandler(mockPipelineService, nil)
 
 		// act
 		err := h.DeletePipeline(c)
@@ -579,7 +577,7 @@ func TestPipelinesHandler_DeletePipeline(t *testing.T) {
 		c.Request().Header.Set("hx-request", "true")
 		c.SetParamNames("pipeline_id")
 		c.SetParamValues(fmt.Sprintf("%d", pipeline.PipelineID))
-		h := NewPipelineHandler(mockPipelineService)
+		h := NewPipelineHandler(mockPipelineService, nil)
 
 		// act
 		err := h.DeletePipeline(c)
@@ -604,7 +602,7 @@ func TestPipelinesHandler_PostPipelineRun(t *testing.T) {
 			expectedPipeline.PipelineID,
 		).Return(expectedPipeline, nil)
 		mockPipelineService.On(
-			"CreateRun",
+			"CreatePipelineRun",
 			context.Background(),
 			expectedPipeline.PipelineID,
 			expectedRun.Branch,
@@ -629,7 +627,7 @@ func TestPipelinesHandler_PostPipelineRun(t *testing.T) {
 		c.Request().Header.Set("hx-request", "true")
 		c.SetParamNames("pipeline_id")
 		c.SetParamValues(fmt.Sprintf("%d", expectedPipeline.PipelineID))
-		h := NewPipelineHandler(mockPipelineService)
+		h := NewPipelineHandler(mockPipelineService, nil)
 
 		// act
 		err := h.PostPipelineRun(c)
@@ -656,7 +654,7 @@ func TestPipelinesHandler_GetPipelineRunPage(t *testing.T) {
 		expectedRun := generateRun(expectedPipeline.PipelineID)
 		mockService := new(MockPipelineService)
 		mockService.On(
-			"GetRunByID",
+			"GetPipelineRunByID",
 			context.Background(),
 			expectedRun.RunID,
 		).Return(expectedRun, nil)
@@ -679,7 +677,7 @@ func TestPipelinesHandler_GetPipelineRunPage(t *testing.T) {
 			fmt.Sprintf("%d", expectedPipeline.PipelineID),
 			fmt.Sprintf("%d", expectedRun.RunID),
 		)
-		h := NewPipelineHandler(mockService)
+		h := NewPipelineHandler(mockService, nil)
 
 		// act
 		err := h.GetPipelineRunPage(c)
@@ -697,7 +695,7 @@ func TestPipelinesHandler_GetPipelineRunPage(t *testing.T) {
 		expectedRun := generateRun(expectedPipeline.PipelineID)
 		mockService := new(MockPipelineService)
 		mockService.On(
-			"GetRunByID",
+			"GetPipelineRunByID",
 			context.Background(),
 			expectedRun.RunID,
 		).Return(expectedRun, nil)
@@ -722,7 +720,7 @@ func TestPipelinesHandler_GetPipelineRunPage(t *testing.T) {
 			fmt.Sprintf("%d", expectedPipeline.PipelineID),
 			fmt.Sprintf("%d", expectedRun.RunID),
 		)
-		h := NewPipelineHandler(mockService)
+		h := NewPipelineHandler(mockService, nil)
 
 		// act
 		err := h.GetPipelineRunPage(c)
@@ -745,9 +743,10 @@ func TestPipelinesHandler_PostPipelineRunWebhookTrigger(t *testing.T) {
 		expectedRun := generateRun(p.PipelineID)
 		ctx := context.Background()
 		mockService := new(MockPipelineService)
+		mockAPIKeyService := new(testutil.MockAPIKeyService)
 		mockService.On("GetPipelineByID", ctx, p.PipelineID).Return(p, nil)
-		mockService.On("GetAPIKeyByValue", ctx, ak.Value).Return(ak, nil)
-		mockService.On("CreateRun", ctx, p.PipelineID, branch).Return(expectedRun, nil)
+		mockAPIKeyService.On("GetAPIKeyByValue", ctx, ak.Value).Return(ak, nil)
+		mockService.On("CreatePipelineRun", ctx, p.PipelineID, branch).Return(expectedRun, nil)
 		mockService.On("EnqueueRun", expectedRun).Return(nil)
 
 		e := echo.New()
@@ -764,7 +763,7 @@ func TestPipelinesHandler_PostPipelineRunWebhookTrigger(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetParamNames("pipeline_id", "branch")
 		c.SetParamValues(fmt.Sprintf("%d", p.PipelineID), branch)
-		h := NewPipelineHandler(mockService)
+		h := NewPipelineHandler(mockService, mockAPIKeyService)
 
 		// act
 		err := h.PostPipelineRunWebhookTrigger(c)
@@ -780,7 +779,8 @@ func TestPipelinesHandler_PostPipelineRunWebhookTrigger(t *testing.T) {
 		ctx := context.Background()
 		mockService := new(MockPipelineService)
 		mockService.On("GetPipelineByID", ctx, p.PipelineID).Return(p, nil)
-		mockService.On("GetAPIKeyByValue", ctx, ak.Value).Return(nil, sql.ErrNoRows)
+		mockAPIKeyService := new(testutil.MockAPIKeyService)
+		mockAPIKeyService.On("GetAPIKeyByValue", ctx, ak.Value).Return(nil, sql.ErrNoRows)
 
 		e := echo.New()
 		req := httptest.NewRequest(
@@ -796,7 +796,7 @@ func TestPipelinesHandler_PostPipelineRunWebhookTrigger(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetParamNames("pipeline_id", "branch")
 		c.SetParamValues(fmt.Sprintf("%d", p.PipelineID), branch)
-		h := NewPipelineHandler(mockService)
+		h := NewPipelineHandler(mockService, mockAPIKeyService)
 
 		// act
 		err := h.PostPipelineRunWebhookTrigger(c)
@@ -815,7 +815,8 @@ func TestPipelinesHandler_PostPipelineRunWebhookTrigger(t *testing.T) {
 		ctx := context.Background()
 		mockService := new(MockPipelineService)
 		mockService.On("GetPipelineByID", ctx, p.PipelineID).Return(nil, sql.ErrNoRows)
-		mockService.On("GetAPIKeyByValue", ctx, ak.Value).Return(ak, nil)
+		mockAPIKeyService := new(testutil.MockAPIKeyService)
+		mockAPIKeyService.On("GetAPIKeyByValue", ctx, ak.Value).Return(ak, nil)
 
 		e := echo.New()
 		req := httptest.NewRequest(
@@ -831,7 +832,7 @@ func TestPipelinesHandler_PostPipelineRunWebhookTrigger(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetParamNames("pipeline_id", "branch")
 		c.SetParamValues(fmt.Sprintf("%d", p.PipelineID), branch)
-		h := NewPipelineHandler(mockService)
+		h := NewPipelineHandler(mockService, mockAPIKeyService)
 
 		// act
 		err := h.PostPipelineRunWebhookTrigger(c)

@@ -17,15 +17,23 @@ import (
 
 	"github.com/goccy/go-yaml"
 	"github.com/haatos/simple-ci/internal"
+	"github.com/haatos/simple-ci/internal/security"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
 
-func NewRunQueue(pipelineService PipelineServicer, maxRuns int64) *RunQueue {
+func NewRunQueue(
+	pipelineStore store.PipelineStore,
+	runStore store.RunStore,
+	encrypter security.Encrypter,
+	maxRuns int64,
+) *RunQueue {
 	return &RunQueue{
-		pipelineService:  pipelineService,
+		pipelineStore:    pipelineStore,
+		runStore:         runStore,
+		aesEncrypter:     encrypter,
 		OutputSSEClients: NewSSEClientMap[string](),
 		StatusSSEClients: NewSSEClientMap[store.Run](),
 		queue:            make(chan *store.Run, maxRuns),
@@ -35,7 +43,9 @@ func NewRunQueue(pipelineService PipelineServicer, maxRuns int64) *RunQueue {
 }
 
 type RunQueue struct {
-	pipelineService  PipelineServicer
+	pipelineStore    store.PipelineStore
+	runStore         store.RunStore
+	aesEncrypter     security.Encrypter
 	OutputSSEClients *SSEClientMap[string]
 	StatusSSEClients *SSEClientMap[store.Run]
 
@@ -105,7 +115,7 @@ func (rq *RunQueue) Shutdown() {
 
 func (rq *RunQueue) handleOutput(ctx context.Context, runID int64) {
 	for out := range rq.outputCh {
-		if err := rq.pipelineService.AppendRunOutput(ctx, runID, out); err != nil {
+		if err := rq.runStore.AppendPipelineRunOutput(ctx, runID, out); err != nil {
 			log.Printf("err appending run output: %+v\n", err)
 		}
 		rq.OutputSSEClients.SendToClients(out)
@@ -122,7 +132,7 @@ func (rq *RunQueue) processRun(
 	ctx context.Context,
 	run *store.Run,
 ) error {
-	prd, err := rq.pipelineService.GetPipelineRunData(ctx, run.RunPipelineID)
+	prd, err := rq.pipelineStore.ReadPipelineRunData(ctx, run.RunPipelineID)
 	if err != nil {
 		return fmt.Errorf("err getting pipeline/agent/credential data: %+w", err)
 	}
@@ -150,7 +160,7 @@ func (rq *RunQueue) processRun(
 	startedOn := time.Now().UTC()
 	run.StartedOn = &startedOn
 
-	if err := rq.pipelineService.UpdateRunStartedOn(
+	if err := rq.runStore.UpdatePipelineRunStartedOn(
 		context.Background(),
 		run.RunID,
 		workdir,
@@ -160,7 +170,7 @@ func (rq *RunQueue) processRun(
 		return fmt.Errorf("err updating run started on: %+w", err)
 	}
 
-	r, err := rq.pipelineService.GetRunByID(context.Background(), run.RunID)
+	r, err := rq.runStore.ReadRunByID(context.Background(), run.RunID)
 	if err != nil {
 		return fmt.Errorf("err getting run by id: %+w", err)
 	}
@@ -211,7 +221,7 @@ PASS || Executed pipeline steps successfully.
 		// update run status
 		run.Status = store.StatusPassed
 		run.EndedOn = util.AsPtr(time.Now().UTC())
-		if err := rq.pipelineService.UpdateRunEndedOn(
+		if err := rq.runStore.UpdatePipelineRunEndedOn(
 			context.Background(),
 			run.RunID,
 			run.Status,
@@ -221,7 +231,7 @@ PASS || Executed pipeline steps successfully.
 			return fmt.Errorf("err updating run ended on: %+w", err)
 		}
 
-		r, err = rq.pipelineService.GetRunByID(context.Background(), run.RunID)
+		r, err = rq.runStore.ReadRunByID(context.Background(), run.RunID)
 		if err != nil {
 			return fmt.Errorf("err getting run by id: %+w", err)
 		}
@@ -261,7 +271,7 @@ PASS || Executed pipeline steps successfully.
 		// update run status
 		run.Status = store.StatusPassed
 		run.EndedOn = util.AsPtr(time.Now().UTC())
-		if err := rq.pipelineService.UpdateRunEndedOn(
+		if err := rq.runStore.UpdatePipelineRunEndedOn(
 			context.Background(),
 			run.RunID,
 			run.Status,
@@ -271,7 +281,7 @@ PASS || Executed pipeline steps successfully.
 			return fmt.Errorf("err updating run ended on: %+w", err)
 		}
 
-		r, err = rq.pipelineService.GetRunByID(context.Background(), run.RunID)
+		r, err = rq.runStore.ReadRunByID(context.Background(), run.RunID)
 		if err != nil {
 			return fmt.Errorf("err getting run by id: %+w", err)
 		}
@@ -769,7 +779,7 @@ func (rq *RunQueue) handleProcessingFailed(err error, run *store.Run) {
 	} else {
 		run.Status = store.StatusFailed
 	}
-	if sqlErr := rq.pipelineService.UpdateRunEndedOn(
+	if sqlErr := rq.runStore.UpdatePipelineRunEndedOn(
 		context.Background(),
 		run.RunID,
 		run.Status,
@@ -779,7 +789,7 @@ func (rq *RunQueue) handleProcessingFailed(err error, run *store.Run) {
 		log.Println("err updating run status to failed:", errors.Join(err, sqlErr))
 	}
 	log.Println("err processing pipeline:", err)
-	r, sqlErr := rq.pipelineService.GetRunByID(context.Background(), run.RunID)
+	r, sqlErr := rq.runStore.ReadRunByID(context.Background(), run.RunID)
 	if sqlErr != nil {
 		log.Println("err getting run by id", errors.Join(err, sqlErr))
 	} else {

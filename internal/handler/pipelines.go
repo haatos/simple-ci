@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/haatos/simple-ci/internal"
 	"github.com/haatos/simple-ci/internal/service"
+	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/util"
 	"github.com/haatos/simple-ci/internal/views"
 	"github.com/haatos/simple-ci/internal/views/pages"
@@ -24,8 +25,12 @@ import (
 
 const maxRunsPerPage int64 = 10
 
-func SetupPipelineRoutes(g *echo.Group, pipelineService service.PipelineServicer) {
-	h := NewPipelineHandler(pipelineService)
+func SetupPipelineRoutes(
+	g *echo.Group,
+	pipelineService PipelineServicer,
+	apiKeyService APIKeyServicer,
+) {
+	h := NewPipelineHandler(pipelineService, apiKeyService)
 	g.POST(
 		"/app/pipelines/:pipeline_id/webhook-trigger/:branch",
 		h.PostPipelineRunWebhookTrigger,
@@ -44,21 +49,100 @@ func SetupPipelineRoutes(g *echo.Group, pipelineService service.PipelineServicer
 	pipelinesGroup.GET("/:pipeline_id/runs", h.GetPipelineRunsPage)
 	pipelinesGroup.GET("/:pipeline_id/runs-list", h.GetPipelineRunsList)
 	pipelinesGroup.GET("/:pipeline_id/runs/:run_id/sse", h.GetPipelineRunSSE)
-	pipelinesGroup.GET("/:pipeline_id/runs/:run_id/output", h.GetRunOutput)
-	pipelinesGroup.GET("/:pipeline_id/runs/:run_id/status", h.GetRunStatus)
+	pipelinesGroup.GET("/:pipeline_id/runs/:run_id/output", h.GetPipelineRunOutput)
+	pipelinesGroup.GET("/:pipeline_id/runs/:run_id/status", h.GetPipelineRunStatus)
 	pipelinesGroup.GET("/:pipeline_id/runs/:run_id/artifacts", h.GetPipelineRunArtifacts)
 	pipelinesGroup.POST("/:pipeline_id/runs/:run_id/cancel", h.PostCancelPipelineRun)
 }
 
+type PipelineWriter interface {
+	CreatePipeline(
+		ctx context.Context,
+		agentID int64,
+		name, description, repository, scriptPath string,
+	) (*store.Pipeline, error)
+	UpdatePipeline(
+		ctx context.Context,
+		pipelineID, agentID int64,
+		name, description, repository, scriptPath string,
+	) error
+	UpdatePipelineSchedule(context.Context, int64, *string, *string) error
+	UpdatePipelineScheduleJobID(context.Context, int64, *string) error
+	DeletePipeline(ctx context.Context, pipelineID int64) error
+}
+
+type PipelineReader interface {
+	GetPipelineByID(
+		ctx context.Context,
+		pipelineID int64,
+	) (*store.Pipeline, error)
+	GetPipelineAndAgents(context.Context, int64) (*store.Pipeline, []*store.Agent, error)
+	GetPipelineRunData(context.Context, int64) (*store.PipelineRunData, error)
+	ListPipelines(ctx context.Context) ([]*store.Pipeline, error)
+	ListPipelinesAndAgents(ctx context.Context) ([]*store.Pipeline, []*store.Agent, error)
+	ListScheduledPipelines(ctx context.Context) ([]*store.Pipeline, error)
+	CollectPipelineRunArtifacts(context.Context, int64, int64) (string, error)
+}
+
+type PipelineRunWriter interface {
+	CreatePipelineRun(ctx context.Context, pipelineID int64, branch string) (*store.Run, error)
+	UpdatePipelineRunStartedOn(
+		ctx context.Context,
+		runID int64,
+		workingDirectory string,
+		status store.RunStatus,
+		startedOn *time.Time,
+	) error
+	UpdatePipelineRunEndedOn(
+		ctx context.Context,
+		runID int64,
+		status store.RunStatus,
+		artifacts *string,
+		endedOn *time.Time,
+	) error
+	AppendPipelineRunOutput(context.Context, int64, string) error
+	DeletePipelineRun(ctx context.Context, runID int64) error
+}
+
+type PipelineRunReader interface {
+	GetPipelineRunByID(ctx context.Context, runID int64) (*store.Run, error)
+	ListPipelineRuns(ctx context.Context, pipelineID int64) ([]store.Run, error)
+	ListLatestPipelineRuns(context.Context, int64, int64) ([]store.Run, error)
+	ListPipelineRunsPaginated(context.Context, int64, int64, int64) ([]store.Run, error)
+	GetPipelineRunCount(context.Context, int64) (int64, error)
+}
+
+type RunQueueServicer interface {
+	InitializeRunQueues(context.Context) error
+	AddRunQueues([]int64, int64)
+	AddRunQueue(int64, int64)
+	GetPipelineRunQueue(int64) (*service.RunQueue, bool)
+	RemoveRunQueue(int64)
+	EnqueueRun(*store.Run) error
+	ShutdownRunQueue(int64)
+	ShutdownAll()
+}
+
+type PipelineServicer interface {
+	PipelineWriter
+	PipelineReader
+	PipelineRunWriter
+	PipelineRunReader
+	RunQueueServicer
+}
+
 type PipelineHandler struct {
-	pipelineService service.PipelineServicer
+	pipelineService PipelineServicer
+	apiKeyService   APIKeyServicer
 }
 
 func NewPipelineHandler(
-	pipelineService service.PipelineServicer,
+	pipelineService PipelineServicer,
+	apiKeyService APIKeyServicer,
 ) *PipelineHandler {
 	return &PipelineHandler{
 		pipelineService: pipelineService,
+		apiKeyService:   apiKeyService,
 	}
 }
 
@@ -223,7 +307,7 @@ func (h *PipelineHandler) PostPipelineRun(c echo.Context) error {
 		return newError(c, err, http.StatusInternalServerError, "unable to read pipeline data")
 	}
 
-	r, err := h.pipelineService.CreateRun(c.Request().Context(), p.PipelineID, rp.Branch)
+	r, err := h.pipelineService.CreatePipelineRun(c.Request().Context(), p.PipelineID, rp.Branch)
 	if err != nil {
 		return newError(c, err, http.StatusInternalServerError, "unable to create pipeline run")
 	}
@@ -247,7 +331,7 @@ func (h *PipelineHandler) PostPipelineRunWebhookTrigger(c echo.Context) error {
 		rp.Branch = "main"
 	}
 
-	_, err := h.pipelineService.GetAPIKeyByValue(c.Request().Context(), apiKeyValue)
+	_, err := h.apiKeyService.GetAPIKeyByValue(c.Request().Context(), apiKeyValue)
 	if err != nil {
 		return echo.NewHTTPError(
 			http.StatusBadRequest, "invalid api key",
@@ -261,7 +345,7 @@ func (h *PipelineHandler) PostPipelineRunWebhookTrigger(c echo.Context) error {
 		)
 	}
 
-	r, err := h.pipelineService.CreateRun(
+	r, err := h.pipelineService.CreatePipelineRun(
 		c.Request().Context(), p.PipelineID, rp.Branch,
 	)
 	if err != nil {
@@ -286,7 +370,7 @@ func (h *PipelineHandler) GetPipelineRunPage(c echo.Context) error {
 		return newError(c, err, http.StatusInternalServerError, "unablea to get pipeline run page")
 	}
 
-	r, err := h.pipelineService.GetRunByID(c.Request().Context(), rp.RunID)
+	r, err := h.pipelineService.GetPipelineRunByID(c.Request().Context(), rp.RunID)
 	if err != nil {
 		return newError(c, err, http.StatusInternalServerError, "unable to read run data")
 	}
@@ -374,7 +458,7 @@ func (h *PipelineHandler) GetPipelineRunSSE(c echo.Context) error {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	rq, ok := h.pipelineService.GetRunQueue(rp.PipelineID)
+	rq, ok := h.pipelineService.GetPipelineRunQueue(rp.PipelineID)
 	if !ok {
 		return nil
 	}
@@ -488,7 +572,7 @@ func (h *PipelineHandler) GetPipelineRunsList(c echo.Context) error {
 	return render(c, pages.RunsPagination(runs, lrp.PipelineID, lrp.Page, maxPages))
 }
 
-func (h *PipelineHandler) GetRunOutput(c echo.Context) error {
+func (h *PipelineHandler) GetPipelineRunOutput(c echo.Context) error {
 	rp := new(RunParams)
 	if err := c.Bind(rp); err != nil {
 		return newError(c, err, http.StatusBadRequest, "invalid request ID")
@@ -499,7 +583,7 @@ func (h *PipelineHandler) GetRunOutput(c echo.Context) error {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	rq, ok := h.pipelineService.GetRunQueue(rp.PipelineID)
+	rq, ok := h.pipelineService.GetPipelineRunQueue(rp.PipelineID)
 	if !ok {
 		return nil
 	}
@@ -530,7 +614,7 @@ func (h *PipelineHandler) GetRunOutput(c echo.Context) error {
 	}
 }
 
-func (h *PipelineHandler) GetRunStatus(c echo.Context) error {
+func (h *PipelineHandler) GetPipelineRunStatus(c echo.Context) error {
 	rp := new(RunParams)
 	if err := c.Bind(rp); err != nil {
 		return newError(c, err, http.StatusBadRequest, "invalid request ID")
@@ -541,7 +625,7 @@ func (h *PipelineHandler) GetRunStatus(c echo.Context) error {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	rq, ok := h.pipelineService.GetRunQueue(rp.PipelineID)
+	rq, ok := h.pipelineService.GetPipelineRunQueue(rp.PipelineID)
 	if !ok {
 		return nil
 	}
@@ -580,7 +664,7 @@ func (h *PipelineHandler) PostCancelPipelineRun(c echo.Context) error {
 		return newError(c, err, http.StatusBadRequest, "invalid pipeline or run ID")
 	}
 
-	rq, ok := h.pipelineService.GetRunQueue(rp.PipelineID)
+	rq, ok := h.pipelineService.GetPipelineRunQueue(rp.PipelineID)
 	if !ok {
 		return renderToast(c, views.FailureToast("pipline run queue not found", 3000))
 	}
@@ -591,7 +675,7 @@ func (h *PipelineHandler) PostCancelPipelineRun(c echo.Context) error {
 }
 
 func SchedulePipelines(
-	pipelineService service.PipelineServicer,
+	pipelineService PipelineServicer,
 	pipelineScheduler gocron.Scheduler,
 ) {
 	scheduledPipelines, err := pipelineService.ListScheduledPipelines(context.Background())
@@ -602,7 +686,7 @@ func SchedulePipelines(
 		job, err := pipelineScheduler.NewJob(
 			gocron.CronJob(*p.Schedule, false),
 			gocron.NewTask(func() {
-				r, err := pipelineService.CreateRun(
+				r, err := pipelineService.CreatePipelineRun(
 					context.Background(),
 					p.PipelineID,
 					*p.ScheduleBranch,

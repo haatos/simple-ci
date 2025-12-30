@@ -86,13 +86,13 @@ func (suite *runSQLiteStoreSuite) TearDownSuite() {
 	_ = suite.db.Close()
 }
 
-func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_CreateRun() {
+func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_CreatePipelineRun() {
 	suite.Run("success - run created", func() {
 		// arrange
 		branch := "main"
 
 		// act
-		r, err := suite.runStore.CreateRun(
+		r, err := suite.runStore.CreatePipelineRun(
 			context.Background(),
 			suite.pipeline.PipelineID,
 			branch,
@@ -109,7 +109,7 @@ func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_CreateRun() {
 		var pipelineID int64 = 2345523
 
 		// act
-		p, err := suite.runStore.CreateRun(context.Background(), pipelineID, "main")
+		p, err := suite.runStore.CreatePipelineRun(context.Background(), pipelineID, "main")
 
 		// assert
 		suite.Error(err)
@@ -124,7 +124,7 @@ func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_CreateRun() {
 func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_ReadRunByID() {
 	suite.Run("success - run is found", func() {
 		// arrange
-		expectedRun, err := suite.runStore.CreateRun(
+		expectedRun, err := suite.runStore.CreatePipelineRun(
 			context.Background(), suite.pipeline.PipelineID, "main")
 		suite.NoError(err)
 
@@ -151,16 +151,16 @@ func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_ReadRunByID() {
 	})
 }
 
-func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_UpdateRunStartedOn() {
+func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_UpdatePipelineRunStartedOn() {
 	suite.Run("success - run started on updates", func() {
 		// arrange
-		expectedRun, err := suite.runStore.CreateRun(
+		expectedRun, err := suite.runStore.CreatePipelineRun(
 			context.Background(), suite.pipeline.PipelineID, "main")
 		suite.NoError(err)
 
 		// act
 		now := time.Now().UTC()
-		updateErr := suite.runStore.UpdateRunStartedOn(
+		updateErr := suite.runStore.UpdatePipelineRunStartedOn(
 			context.Background(),
 			expectedRun.RunID,
 			time.Now().UTC().Format(internal.RunDirLayout),
@@ -178,17 +178,17 @@ func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_UpdateRunStartedOn() {
 	})
 }
 
-func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_UpdateRunEndedOn() {
+func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_UpdatePipelineRunEndedOn() {
 	suite.Run("success - run ended on updates", func() {
 		// arrange
-		expectedRun, err := suite.runStore.CreateRun(
+		expectedRun, err := suite.runStore.CreatePipelineRun(
 			context.Background(), suite.pipeline.PipelineID, "main")
 		suite.NoError(err)
 
 		// act
 		artifacts := "artifacts.zip"
 		now := time.Now().UTC()
-		updateErr := suite.runStore.UpdateRunEndedOn(
+		updateErr := suite.runStore.UpdatePipelineRunEndedOn(
 			context.Background(),
 			expectedRun.RunID,
 			StatusPassed,
@@ -207,15 +207,15 @@ func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_UpdateRunEndedOn() {
 	})
 }
 
-func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_DeleteRun() {
+func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_DeletePipelineRun() {
 	suite.Run("success - run is deleted", func() {
 		// arrange
-		expectedRun, err := suite.runStore.CreateRun(
+		expectedRun, err := suite.runStore.CreatePipelineRun(
 			context.Background(), suite.pipeline.PipelineID, "main")
 		suite.NoError(err)
 
 		// act
-		deleteErr := suite.runStore.DeleteRun(
+		deleteErr := suite.runStore.DeletePipelineRun(
 			context.Background(), expectedRun.RunID)
 		r, readErr := suite.runStore.ReadRunByID(
 			context.Background(), expectedRun.RunID)
@@ -231,7 +231,7 @@ func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_DeleteRun() {
 func (suite *runSQLiteStoreSuite) TestRunSQLiteStore_ListPipelineRuns() {
 	suite.Run("success - pipeline runs found", func() {
 		// arrange
-		expectedRun, err := suite.runStore.CreateRun(
+		expectedRun, err := suite.runStore.CreatePipelineRun(
 			context.Background(), suite.pipeline.PipelineID, "main")
 		suite.NoError(err)
 

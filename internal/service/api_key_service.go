@@ -7,14 +7,6 @@ import (
 	"github.com/haatos/simple-ci/internal/store"
 )
 
-type APIKeyServicer interface {
-	CreateAPIKey(context.Context) (*store.APIKey, error)
-	GetAPIKeyByID(context.Context, int64) (*store.APIKey, error)
-	GetAPIKeyByValue(context.Context, string) (*store.APIKey, error)
-	DeleteAPIKey(context.Context, int64) error
-	ListAPIKeys(context.Context) ([]*store.APIKey, error)
-}
-
 type UUIDGenerator interface {
 	GenerateUUID() string
 }

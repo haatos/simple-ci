@@ -26,6 +26,9 @@ func (cm *SSEClientMap[T]) RemoveClient(uid string) {
 	defer cm.m.Unlock()
 	close(cm.clients[uid])
 	delete(cm.clients, uid)
+	if len(cm.clients) == 0 {
+		cm.clients = make(map[string]chan T)
+	}
 }
 
 func (cm *SSEClientMap[T]) SendToClients(message T) {

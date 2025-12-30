@@ -1,12 +1,12 @@
 package handler
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
 	"strings"
 
-	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/views"
 	"github.com/haatos/simple-ci/internal/views/pages"
@@ -17,7 +17,7 @@ const (
 	deleteCredentialErrorTarget string = "#delete-credential-error"
 )
 
-func SetupCredentialRoutes(g *echo.Group, credentialService service.CredentialServicer) {
+func SetupCredentialRoutes(g *echo.Group, credentialService CredentialServicer) {
 	h := NewCredentialHandler(credentialService)
 	credentialsGroup := g.Group("/app/credentials", IsAuthenticated)
 	credentialsGroup.GET("", h.GetCredentialsPage)
@@ -27,11 +27,31 @@ func SetupCredentialRoutes(g *echo.Group, credentialService service.CredentialSe
 	credentialsGroup.GET("/:credential_id", h.GetCredentialPage)
 }
 
-type CredentialHandler struct {
-	credentialService service.CredentialServicer
+type CredentialWriter interface {
+	CreateCredential(
+		context.Context,
+		string, string, string,
+	) (*store.Credential, error)
+	UpdateCredential(context.Context, int64, string, string) error
+	DeleteCredential(context.Context, int64) error
 }
 
-func NewCredentialHandler(credentialService service.CredentialServicer) *CredentialHandler {
+type CredentialReader interface {
+	GetCredentialByID(context.Context, int64) (*store.Credential, error)
+	ListCredentials(context.Context) ([]*store.Credential, error)
+	DecryptAES(string) ([]byte, error)
+}
+
+type CredentialServicer interface {
+	CredentialWriter
+	CredentialReader
+}
+
+type CredentialHandler struct {
+	credentialService CredentialServicer
+}
+
+func NewCredentialHandler(credentialService CredentialServicer) *CredentialHandler {
 	return &CredentialHandler{credentialService}
 }
 

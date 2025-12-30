@@ -26,6 +26,9 @@ func (m *CancelMap[K]) RemoveCancel(key K) {
 	m.m.Lock()
 	defer m.m.Unlock()
 	delete(m.cancels, key)
+	if len(m.cancels) == 0 {
+		m.cancels = make(map[K]context.CancelFunc)
+	}
 }
 
 func (m *CancelMap[K]) Call(key K) {

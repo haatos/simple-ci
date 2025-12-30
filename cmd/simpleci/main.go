@@ -59,7 +59,7 @@ func main() {
 		runStore,
 		credentialStore,
 		agentStore,
-		apiKeySvc,
+		apiKeyStore,
 		scheduler,
 		aesEncrypter,
 	)
@@ -81,7 +81,7 @@ func main() {
 	handler.SetupUserRoutes(g, userSvc, cookieSvc)
 	handler.SetupCredentialRoutes(g, credentialSvc)
 	handler.SetupAgentRoutes(g, agentSvc)
-	handler.SetupPipelineRoutes(g, pipelineSvc)
+	handler.SetupPipelineRoutes(g, pipelineSvc, apiKeySvc)
 	handler.SetupAPIKeyRoutes(g, apiKeySvc)
 
 	internal.GracefulShutdown(e, settings.Settings.Port)

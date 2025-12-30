@@ -9,7 +9,7 @@ import (
 )
 
 func SessionMiddleware(
-	userService service.UserServicer,
+	userService UserServicer,
 	cookieService *service.CookieService,
 ) func(echo.HandlerFunc) echo.HandlerFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {

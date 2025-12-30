@@ -1,18 +1,18 @@
 package handler
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
 
-	"github.com/haatos/simple-ci/internal/service"
 	"github.com/haatos/simple-ci/internal/store"
 	"github.com/haatos/simple-ci/internal/views"
 	"github.com/haatos/simple-ci/internal/views/pages"
 	"github.com/labstack/echo/v4"
 )
 
-func SetupAPIKeyRoutes(g *echo.Group, apiKeyService service.APIKeyServicer) {
+func SetupAPIKeyRoutes(g *echo.Group, apiKeyService APIKeyServicer) {
 	h := NewAPIKeyHandler(apiKeyService)
 	apiKeysGroup := g.Group("/app/api-keys", IsAuthenticated)
 	apiKeysGroup.GET("", h.GetAPIKeysPage, RoleMiddleware(store.Admin))
@@ -20,11 +20,27 @@ func SetupAPIKeyRoutes(g *echo.Group, apiKeyService service.APIKeyServicer) {
 	apiKeysGroup.DELETE("/:id", h.DeleteAPIKey, RoleMiddleware(store.Admin))
 }
 
-type APIKeyHandler struct {
-	apiKeyService service.APIKeyServicer
+type APIKeyWriter interface {
+	CreateAPIKey(context.Context) (*store.APIKey, error)
+	DeleteAPIKey(context.Context, int64) error
 }
 
-func NewAPIKeyHandler(apiKeyService service.APIKeyServicer) *APIKeyHandler {
+type APIKeyReader interface {
+	GetAPIKeyByID(context.Context, int64) (*store.APIKey, error)
+	GetAPIKeyByValue(context.Context, string) (*store.APIKey, error)
+	ListAPIKeys(context.Context) ([]*store.APIKey, error)
+}
+
+type APIKeyServicer interface {
+	APIKeyWriter
+	APIKeyReader
+}
+
+type APIKeyHandler struct {
+	apiKeyService APIKeyServicer
+}
+
+func NewAPIKeyHandler(apiKeyService APIKeyServicer) *APIKeyHandler {
 	return &APIKeyHandler{apiKeyService}
 }
 

@@ -9,18 +9,6 @@ import (
 	"github.com/haatos/simple-ci/internal/store"
 )
 
-type CredentialServicer interface {
-	CreateCredential(
-		context.Context,
-		string, string, string,
-	) (*store.Credential, error)
-	GetCredentialByID(context.Context, int64) (*store.Credential, error)
-	ListCredentials(context.Context) ([]*store.Credential, error)
-	UpdateCredential(context.Context, int64, string, string) error
-	DeleteCredential(context.Context, int64) error
-	DecryptAES(string) ([]byte, error)
-}
-
 type CredentialService struct {
 	credentialStore store.CredentialStore
 	encrypter       security.Encrypter

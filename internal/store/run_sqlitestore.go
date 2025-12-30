@@ -16,7 +16,7 @@ func NewRunSQLiteStore(rdb, rwdb *sql.DB) *RunSQLiteStore {
 	return &RunSQLiteStore{rdb, rwdb}
 }
 
-func (store *RunSQLiteStore) CreateRun(
+func (store *RunSQLiteStore) CreatePipelineRun(
 	ctx context.Context,
 	pipelineID int64,
 	branch string,
@@ -48,7 +48,7 @@ func (store *RunSQLiteStore) ReadRunByID(ctx context.Context, id int64) (*Run, e
 	return r, nil
 }
 
-func (store *RunSQLiteStore) UpdateRunStartedOn(
+func (store *RunSQLiteStore) UpdatePipelineRunStartedOn(
 	ctx context.Context,
 	id int64,
 	workingDirectory string,
@@ -70,7 +70,7 @@ func (store *RunSQLiteStore) UpdateRunStartedOn(
 	return err
 }
 
-func (store *RunSQLiteStore) UpdateRunEndedOn(
+func (store *RunSQLiteStore) UpdatePipelineRunEndedOn(
 	ctx context.Context,
 	id int64,
 	status RunStatus,
@@ -92,7 +92,7 @@ func (store *RunSQLiteStore) UpdateRunEndedOn(
 	return err
 }
 
-func (store *RunSQLiteStore) AppendRunOutput(ctx context.Context, id int64, out string) error {
+func (store *RunSQLiteStore) AppendPipelineRunOutput(ctx context.Context, id int64, out string) error {
 	tx, err := store.rwdb.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -121,7 +121,7 @@ func (store *RunSQLiteStore) AppendRunOutput(ctx context.Context, id int64, out 
 	return tx.Commit()
 }
 
-func (store *RunSQLiteStore) DeleteRun(ctx context.Context, id int64) error {
+func (store *RunSQLiteStore) DeletePipelineRun(ctx context.Context, id int64) error {
 	query := "delete from runs where run_id = $1"
 	_, err := store.rwdb.ExecContext(ctx, query, id)
 	return err

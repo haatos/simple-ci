@@ -18,31 +18,6 @@ import (
 	"golang.org/x/term"
 )
 
-type UserServicer interface {
-	GetUserByID(ctx context.Context, userID int64) (*store.User, error)
-	GetUserBySessionID(ctx context.Context, sessionID string) (*store.User, error)
-	CreateUser(
-		ctx context.Context,
-		userRoleID store.Role,
-		username, password string,
-	) (*store.User, error)
-	ListUsers(ctx context.Context) ([]*store.User, error)
-	ChangeUserPassword(
-		ctx context.Context,
-		userID int64,
-		oldPassword, newPassword string,
-	) error
-	ResetUserPassword(
-		ctx context.Context,
-		userID int64,
-		newPassword string,
-	) error
-	DeleteUser(ctx context.Context, u *store.User) error
-	ListSuperusers(ctx context.Context) ([]store.User, error)
-	UpdateUserRole(ctx context.Context, userID int64, role store.Role) error
-	InitializeSuperuser(context.Context)
-}
-
 type UserService struct {
 	userStore store.UserStore
 }
