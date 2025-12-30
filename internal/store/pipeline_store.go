@@ -1,9 +1,5 @@
 package store
 
-import (
-	"context"
-)
-
 type Pipeline struct {
 	PipelineID      int64
 	PipelineAgentID int64
@@ -33,23 +29,4 @@ type PipelineRunData struct {
 	Username          *string
 	SSHPrivateKeyHash *string
 	SSHPrivateKey     []byte
-}
-
-type PipelineStore interface {
-	CreatePipeline(
-		context.Context,
-		int64,
-		string,
-		string,
-		string,
-		string,
-	) (*Pipeline, error)
-	ReadPipelineByID(context.Context, int64) (*Pipeline, error)
-	ReadPipelineRunData(context.Context, int64) (*PipelineRunData, error)
-	UpdatePipeline(context.Context, int64, int64, string, string, string, string) error
-	UpdatePipelineSchedule(context.Context, int64, *string, *string, *string) error
-	UpdatePipelineScheduleJobID(context.Context, int64, *string) error
-	DeletePipeline(context.Context, int64) error
-	ListPipelines(context.Context) ([]*Pipeline, error)
-	ListScheduledPipelines(context.Context) ([]*Pipeline, error)
 }

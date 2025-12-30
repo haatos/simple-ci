@@ -25,7 +25,7 @@ import (
 )
 
 func NewRunQueue(
-	pipelineStore store.PipelineStore,
+	pipelineStore PipelineStore,
 	runStore store.RunStore,
 	encrypter security.Encrypter,
 	maxRuns int64,
@@ -43,7 +43,7 @@ func NewRunQueue(
 }
 
 type RunQueue struct {
-	pipelineStore    store.PipelineStore
+	pipelineStore    PipelineStore
 	runStore         store.RunStore
 	aesEncrypter     security.Encrypter
 	OutputSSEClients *SSEClientMap[string]

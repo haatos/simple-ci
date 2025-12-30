@@ -25,8 +25,32 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+type PipelineWriter interface {
+	CreatePipeline(
+		context.Context,
+		int64,
+		string, string, string, string,
+	) (*store.Pipeline, error)
+	UpdatePipeline(context.Context, int64, int64, string, string, string, string) error
+	UpdatePipelineSchedule(context.Context, int64, *string, *string, *string) error
+	UpdatePipelineScheduleJobID(context.Context, int64, *string) error
+	DeletePipeline(context.Context, int64) error
+}
+
+type PipelineReader interface {
+	ReadPipelineByID(context.Context, int64) (*store.Pipeline, error)
+	ReadPipelineRunData(context.Context, int64) (*store.PipelineRunData, error)
+	ListPipelines(context.Context) ([]*store.Pipeline, error)
+	ListScheduledPipelines(context.Context) ([]*store.Pipeline, error)
+}
+
+type PipelineStore interface {
+	PipelineWriter
+	PipelineReader
+}
+
 type PipelineService struct {
-	pipelineStore   store.PipelineStore
+	pipelineStore   PipelineStore
 	runStore        store.RunStore
 	credentialStore CredentialStore
 	agentService    AgentStore
@@ -39,7 +63,7 @@ type PipelineService struct {
 }
 
 func NewPipelineService(
-	pipelineStore store.PipelineStore,
+	pipelineStore PipelineStore,
 	runStore store.RunStore,
 	credentialStore CredentialStore,
 	agentStore AgentStore,
