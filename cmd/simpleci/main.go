@@ -25,9 +25,9 @@ func main() {
 	settings.ReadDotenv(internal.DotEnvPath)
 	settings.Settings = settings.NewSettings()
 	hashKey, blockKey := security.NewKeys()
-	rdb := store.InitDatabase(true)
+	rdb := store.NewDatabaseHandle(true)
 	defer rdb.Close()
-	rwdb := store.InitDatabase(false)
+	rwdb := store.NewDatabaseHandle(false)
 	defer rwdb.Close()
 	store.RunMigrations(rwdb, internal.MigrationsDir)
 

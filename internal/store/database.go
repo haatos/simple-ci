@@ -8,7 +8,7 @@ import (
 	"github.com/haatos/simple-ci/internal/settings"
 )
 
-func InitDatabase(readonly bool) *sql.DB {
+func NewDatabaseHandle(readonly bool) *sql.DB {
 	db, err := sql.Open("sqlite", settings.Settings.SQLiteDbString(readonly))
 	if err != nil {
 		log.Fatal("fatal error opening sqlite database:", err)
