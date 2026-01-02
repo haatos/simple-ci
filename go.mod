@@ -3,7 +3,7 @@ module github.com/haatos/simple-ci
 go 1.25.0
 
 require (
-	github.com/a-h/templ v0.3.960
+	github.com/a-h/templ v0.3.977
 	github.com/georgysavva/scany/v2 v2.1.3
 	github.com/go-co-op/gocron/v2 v2.16.6
 	github.com/goccy/go-yaml v1.18.0
